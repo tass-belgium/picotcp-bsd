@@ -14,7 +14,6 @@ Author: Andrei Carp, Maxime Vincent
 #include "pico_ipv6.h"
 #include "pico_dns_client.h"
 #include "pico_socket.h"
-#include "sys/types.h"
 
 #ifndef PICO_BSD_SOCKETS_H_
 #define PICO_BSD_SOCKETS_H_
@@ -23,6 +22,7 @@ Author: Andrei Carp, Maxime Vincent
 struct pico_bsd_endpoint;
 
 #ifdef STDSOCKET
+#include "sys/types.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
@@ -121,6 +121,7 @@ struct hostent {
 
 /* Not socket related */
 #define time_t pico_time
+#ifndef _TIMEVAL_DEFINED
 struct timeval {
     time_t tv_sec;
     time_t tv_usec;
@@ -130,6 +131,7 @@ struct timezone {
     int tz_minuteswest;     /* minutes west of Greenwich */
     int tz_dsttime;         /* type of DST correction */
 };
+#endif
 #endif
 
 
