@@ -879,7 +879,7 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
         struct sockaddr_in6 sa6;
         if (pico_string_to_ipv6(node, sa6.sin6_addr.s6_addr) == 0) {
             ck6 = dnsquery_cookie_create(res, 0);
-            dns_ip6_cb(node, ck6);
+            dns_ip6_cb((char *)node, ck6);
             return 0;
         }
         if (!hints || (hints->ai_family == AF_INET6)) {
@@ -895,7 +895,7 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
 #endif /* PICO_SUPPORT_IPV6 */
     if (pico_string_to_ipv4(node, &sa4.sin_addr.s_addr) == 0) {
         ck4 = dnsquery_cookie_create(res, 0);
-        dns_ip4_cb(node, ck4);
+        dns_ip4_cb((char*)node, ck4);
         return 0;
     }
 
@@ -1033,7 +1033,7 @@ int pico_setsockopt(int sockfd, int level, int optname, const void *optval, sock
         return -1;
     }
     pico_mutex_lock(ep->mutex_lock);
-    ret = pico_socket_setoption(ep->s, sockopt_get_name(optname), optval);
+    ret = pico_socket_setoption(ep->s, sockopt_get_name(optname), (void *)optval);
     pico_mutex_unlock(ep->mutex_lock);
     return ret;
 }
@@ -1041,6 +1041,6 @@ int pico_setsockopt(int sockfd, int level, int optname, const void *optval, sock
 int pico_gettimeofday(struct timeval *tv, struct timezone *tz)
 {
     (void)tz;
-    return pico_sntp_gettimeofday(tv);
+    return pico_sntp_gettimeofday((struct pico_timeval *)tv);
 }
 #endif
