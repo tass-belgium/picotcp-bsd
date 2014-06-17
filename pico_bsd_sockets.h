@@ -7,6 +7,8 @@ holders.
 Author: Andrei Carp, Maxime Vincent
 *********************************************************************/
 #include "pico_defines.h"
+#include "pico_constants.h"
+#include "pico_config.h"
 #include "pico_stack.h"
 #include "pico_icmp4.h"
 #include "pico_stack.h"
@@ -120,7 +122,10 @@ struct hostent {
 
 
 /* Not socket related */
-#define time_t pico_time
+#ifndef __time_t_defined
+typedef pico_time time_t;
+#define __time_t_defined
+#endif
 #ifndef _TIMEVAL_DEFINED
 struct timeval {
     time_t tv_sec;
@@ -131,6 +136,7 @@ struct timezone {
     int tz_minuteswest;     /* minutes west of Greenwich */
     int tz_dsttime;         /* type of DST correction */
 };
+#define _TIMEVAL_DEFINED
 #endif
 #endif
 
