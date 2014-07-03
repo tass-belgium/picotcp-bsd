@@ -23,7 +23,7 @@ Author: Andrei Carp, Maxime Vincent
 #define SOCKSIZE6 28
 struct pico_bsd_endpoint;
 
-#ifdef STDSOCKET
+#if defined STDSOCKET || defined __socklen_t_defined
 #include "sys/types.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -126,7 +126,7 @@ struct hostent {
 typedef pico_time time_t;
 #define __time_t_defined
 #endif
-#ifndef _TIMEVAL_DEFINED
+#if !defined _TIME_H && !defined _TIMEVAL_DEFINED && !defined _STRUCT_TIMEVAL
 struct timeval {
     time_t tv_sec;
     time_t tv_usec;
