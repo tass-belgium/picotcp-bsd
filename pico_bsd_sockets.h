@@ -28,6 +28,7 @@ struct pico_bsd_endpoint;
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <fcntl.h>
 static inline int sockopt_get_name(int posix_name)
 {
     switch (posix_name) {
@@ -138,6 +139,18 @@ struct timezone {
 };
 #define _TIMEVAL_DEFINED
 #endif
+#endif
+
+#ifndef F_GETFL
+# define F_GETFL 3
+#endif
+
+#ifndef F_SETFL
+# define F_SETFL 4
+#endif
+
+#ifndef O_NONBLOCK
+# define O_NONBLOCK  00004000
 #endif
 
 

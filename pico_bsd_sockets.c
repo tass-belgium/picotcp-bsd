@@ -29,6 +29,7 @@ struct pico_bsd_endpoint {
   int      posix_fd;        /* TODO: ifdef... */
   uint8_t  in_use;
   uint8_t  state;           /* for pico_state */
+  uint8_t  nonblocking;     /* The non-blocking flag, for non-blocking socket operations */
   uint16_t events;          /* events that we filter for */
   uint16_t revents;         /* received events */
   uint16_t proto;
@@ -250,8 +251,13 @@ int pico_connect(int sd, struct sockaddr *_saddr, socklen_t socklen)
     pico_socket_connect(ep->s, &addr, port);
     pico_mutex_unlock(picoLock);
 
-    /* wait for event */
-    ev = pico_bsd_wait(ep, 0, 0, 0); /* wait for ERR, FIN and CONN */
+    if (ep->nonblocking) {
+        pico_err = PICO_ERR_EAGAIN;
+        return -1;
+    } else {
+        /* wait for event */
+        ev = pico_bsd_wait(ep, 0, 0, 0); /* wait for ERR, FIN and CONN */
+    }
 
     if(ev & PICO_SOCK_EV_CONN)
     {
@@ -291,7 +297,14 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
     client_ep->signal = pico_signal_init();
 
     pico_mutex_unlock(picoLock);
-    events = pico_bsd_wait(ep, 0, 0, 0); /* Wait for CONN, FIN and ERR */
+
+
+
+    if (ep->nonblocking)
+        events = PICO_SOCK_EV_CONN;
+    else 
+        events = pico_bsd_wait(ep, 0, 0, 0); /* Wait for CONN, FIN and ERR */
+
     if(events & PICO_SOCK_EV_CONN)
     {
         pico_mutex_lock(picoLock);
@@ -364,6 +377,9 @@ int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, s
             break;
         }
 
+        if (ep->nonblocking)
+            break;
+
         /* If sent bytes (retval) < len-tot_len: socket full, we need to wait for a new WR event */
         if (retval < (len - tot_len))
         {
@@ -381,6 +397,34 @@ int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, s
     }
     pico_signal_send(event_semaphore);
     return tot_len;
+}
+
+int pico_fcntl(int sd, int cmd, int arg)
+{
+    struct pico_bsd_endpoint *ep = get_endpoint(sd);
+    if (!ep) {
+        pico_err = PICO_ERR_EINVAL;
+        return -1;
+    }
+
+    if (cmd == F_SETFL) {
+        if ((arg & O_NONBLOCK) != 0) {
+            ep->nonblocking = 1;
+        } else {
+            ep->nonblocking = 0;
+        }
+        return 0;
+    }
+
+    if (cmd == F_GETFL) {
+        (void)arg; /* F_GETFL: arg is ignored */
+        if (ep->nonblocking)
+            return O_NONBLOCK;
+        else
+            return 0;
+    }
+    pico_err = PICO_ERR_EINVAL;
+    return -1;
 }
 
 int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_addr, socklen_t *socklen)
@@ -440,6 +484,9 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
                 continue;
             }
         }
+
+        if (ep->nonblocking)
+            break;
 
         /* If recv bytes (retval) < len-tot_len: socket empty, we need to wait for a new RD event */
         if (retval < (len - tot_len))
