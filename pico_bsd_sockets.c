@@ -189,11 +189,13 @@ int pico_getsockname(int sd, struct sockaddr * local_addr, socklen_t *socklen)
     union pico_address addr;
     uint16_t port, proto;
     struct pico_bsd_endpoint *ep = get_endpoint(sd);
-
+    printf("Start validation\n");
     VALIDATE_NULL(ep);
     VALIDATE_NULL(local_addr);
     VALIDATE_NULL(socklen);
+    printf("End validation\n");
     pico_mutex_lock(picoLock);
+    printf("pico mutex locked\n");
     if(pico_socket_getname(ep->s, &addr, &port, &proto) < 0)
     {
         pico_mutex_unlock(picoLock);
@@ -209,6 +211,7 @@ int pico_getsockname(int sd, struct sockaddr * local_addr, socklen_t *socklen)
         pico_mutex_unlock(picoLock);
         return -1;
     }
+    pico_mutex_unlock(picoLock);
     pico_port_to_bsd(local_addr, *socklen, port);
     return 0;
 }
