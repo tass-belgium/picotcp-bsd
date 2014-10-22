@@ -223,6 +223,10 @@ uint16_t                     pico_bsd_select(struct pico_bsd_endpoint *ep);
 #  define gethostbyname pico_gethostbyname
 #  define getaddrinfo pico_getaddrinfo
 #  define freeaddrinfo pico_freeaddrinfo
+#  define htons short_be
+#  define htonl long_be
+#  define ntohs short_from
+#  define ntohl long_from
 #endif
 
 #endif /* PICO_BSD_SOCKETS_H_ */
