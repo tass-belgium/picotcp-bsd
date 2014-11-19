@@ -225,8 +225,8 @@ uint16_t                     pico_bsd_select(struct pico_bsd_endpoint *ep);
 #  define freeaddrinfo pico_freeaddrinfo
 #  define htons short_be
 #  define htonl long_be
-#  define ntohs short_from
-#  define ntohl long_from
+#  define ntohs short_be
+#  define ntohl long_be
 #endif
 
 #endif /* PICO_BSD_SOCKETS_H_ */
