@@ -220,6 +220,7 @@ uint16_t                     pico_bsd_select(struct pico_bsd_endpoint *ep);
 #  define close pico_close
 #  define shutdown pico_shutdown
 #  define getsockname pico_getsockname
+#  define getpeername pico_getpeername
 #  define setsockopt pico_setsockopt
 #  define getsockopt pico_getsockopt
 #  define gettimeofday pico_gettimeofday
