@@ -1041,7 +1041,7 @@ int pico_getsockopt(int sockfd, int level, int optname, void *optval, socklen_t 
 {
     struct pico_bsd_endpoint *ep = get_endpoint(sockfd);
     int ret;
-    bsd_dbg("called setsockopt\n");
+    bsd_dbg("called getsockopt\n");
     if (level != SOL_SOCKET) {
         pico_err = PICO_ERR_EPROTONOSUPPORT;
         return -1;
@@ -1079,6 +1079,9 @@ int pico_setsockopt(int sockfd, int level, int optname, const void *optval, sock
         pico_err = PICO_ERR_EFAULT;
         return -1;
     }
+    if ((optname == SO_REUSEADDR) || (optname == SO_REUSEPORT))
+        return 0; /* Pretend it was OK. */
+
     pico_mutex_lock(ep->mutex_lock);
     ret = pico_socket_setoption(ep->s, sockopt_get_name(optname), (void *)optval);
     pico_mutex_unlock(ep->mutex_lock);

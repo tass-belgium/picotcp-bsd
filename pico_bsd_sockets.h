@@ -60,6 +60,8 @@ typedef int socklen_t;
 #define IP_DROP_MEMBERSHIP (PICO_IP_DROP_MEMBERSHIP)
 #define SO_RCVBUF    (PICO_SOCKET_OPT_RCVBUF)
 #define SO_SNDBUF    (PICO_SOCKET_OPT_SNDBUF)
+#define SO_REUSEADDR    (2)
+#define SO_REUSEPORT    (15)
 #define sockopt_get_name(x) ((x))
 
 
