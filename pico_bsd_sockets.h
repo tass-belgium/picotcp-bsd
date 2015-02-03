@@ -170,6 +170,7 @@ int pico_recv(int sd, void * buf, int len, int flags);
 int pico_close(int sd);
 int pico_shutdown(int sd, int how);
 int pico_getsockname(int sd, struct sockaddr * local_addr, socklen_t *socklen);
+int pico_getpeername(int sd, struct sockaddr * remote_addr, socklen_t *socklen);
 int pico_bsd_check_events(int sd, uint16_t events, uint16_t *revents);
 
 #ifdef PICO_SUPPORT_DNS_CLIENT
