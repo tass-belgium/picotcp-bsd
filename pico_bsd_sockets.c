@@ -23,6 +23,9 @@ Author: Maxime Vincent, Andrei Carp, Daniele Lacamera
 
 #define bsd_dbg(...) do {} while(0)
 
+/* Global signal (for select) */
+void * global_signal;
+
 struct pico_bsd_endpoint {
   struct   pico_socket *s;
   int      socket_fd;
@@ -36,6 +39,7 @@ struct pico_bsd_endpoint {
   void *   mutex_lock;      /* mutex for clearing revents */
   void *   signal;          /* signals new events */
   uint32_t timeout;         /* this is used for timeout sockets */
+  int      error;           /* used for SO_ERROR sockopt after connect() */
 };
 
 void * event_semaphore;
@@ -73,6 +77,7 @@ static void * picoLock = NULL;
 /************************/
 void pico_bsd_init(void)
 {
+    global_signal = pico_mutex_init();
     picoLock = pico_mutex_init();
 }
 
@@ -152,6 +157,7 @@ int pico_newsocket(int domain, int type, int proto)
     ep->state = SOCK_OPEN;
     ep->mutex_lock = pico_mutex_init();
     ep->signal = pico_signal_init();
+    ep->error = pico_err;
     pico_mutex_unlock(picoLock);
     return ep->socket_fd;
 }
@@ -168,12 +174,16 @@ int pico_bind(int sd, struct sockaddr * local_addr, socklen_t socklen)
     VALIDATE_TWO(socklen, SOCKSIZE, SOCKSIZE6);
 
     if (bsd_to_pico_addr(&addr, local_addr, socklen) < 0)
+    {
+        ep->error = PICO_ERR_EINVAL;
         return -1;
+    }
     port = bsd_to_pico_port(local_addr, socklen);
 
     pico_mutex_lock(picoLock);
     if(pico_socket_bind(ep->s, &addr, &port) < 0)
     {
+        ep->error = pico_err;
         pico_mutex_unlock(picoLock);
         return -1;
     }
@@ -195,6 +205,7 @@ int pico_getsockname(int sd, struct sockaddr * local_addr, socklen_t *socklen)
     pico_mutex_lock(picoLock);
     if(pico_socket_getname(ep->s, &addr, &port, &proto) < 0)
     {
+        ep->error = pico_err;
         pico_mutex_unlock(picoLock);
         return -1;
     }
@@ -205,11 +216,13 @@ int pico_getsockname(int sd, struct sockaddr * local_addr, socklen_t *socklen)
         *socklen = SOCKSIZE;
 
     if (pico_addr_to_bsd(local_addr, *socklen, &addr, proto) < 0) {
+        ep->error = pico_err;
         pico_mutex_unlock(picoLock);
         return -1;
     }
     pico_mutex_unlock(picoLock);
     pico_port_to_bsd(local_addr, *socklen, port);
+    ep->error = pico_err;
     return 0;
 }
 
@@ -255,11 +268,13 @@ int pico_listen(int sd, int backlog)
 
     if(pico_socket_listen(ep->s, backlog) < 0)
     {
+        ep->error = pico_err;
         pico_mutex_unlock(picoLock);
         return -1;
     }
     ep->state = SOCK_LISTEN;
 
+    ep->error = pico_err;
     pico_mutex_unlock(picoLock);
     return 0;
 }
@@ -274,15 +289,19 @@ int pico_connect(int sd, struct sockaddr *_saddr, socklen_t socklen)
     VALIDATE_NULL(ep);
     VALIDATE_NULL(_saddr);
     if (bsd_to_pico_addr(&addr, _saddr, socklen) < 0)
+    {
+        ep->error = PICO_ERR_EINVAL;
         return -1;
+    }
     port = bsd_to_pico_port(_saddr, socklen);
     pico_mutex_lock(picoLock);
     pico_socket_connect(ep->s, &addr, port);
     pico_mutex_unlock(picoLock);
 
     if (ep->nonblocking) {
-        pico_err = PICO_ERR_EAGAIN;
-        return -1;
+        pico_err = PICO_ERR_EBUSY; /* should be EINPROGRESS */
+        ep->error = pico_err;
+        //return -1;
     } else {
         /* wait for event */
         ev = pico_bsd_wait(ep, 0, 0, 0); /* wait for ERR, FIN and CONN */
@@ -292,10 +311,13 @@ int pico_connect(int sd, struct sockaddr *_saddr, socklen_t socklen)
     {
         /* clear the EV_CONN event */
         pico_event_clear(ep, PICO_SOCK_EV_CONN);
+        ep->error = pico_err;
         return 0;
     } else {
-        pico_socket_close(ep->s);
+        if (!(ep->nonblocking))
+            pico_socket_close(ep->s);
     }
+    ep->error = pico_err;
     return -1;
 }
 
@@ -317,6 +339,7 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
 
     if (!client_ep)
     {
+        ep->error = pico_err;
         pico_mutex_unlock(picoLock);
         return -1;
     }
@@ -340,6 +363,7 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
         client_ep->s = pico_socket_accept(ep->s,&picoaddr,&port);
         if (!client_ep->s)
         {
+            ep->error = pico_err;
             pico_mutex_unlock(picoLock);
             return -1;
         }
@@ -358,8 +382,10 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
 
         client_ep->in_use = 1;
         pico_mutex_unlock(picoLock);
+        ep->error = pico_err;
         return client_ep->socket_fd;
     }
+    ep->error = pico_err;
     return -1;
 }
 
@@ -375,6 +401,7 @@ int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, s
 
     if (!buf || (len <= 0)) {
         pico_err = PICO_ERR_EINVAL;
+        ep->error = pico_err;
         return -1;
     }
 
@@ -385,6 +412,7 @@ int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, s
             retval = pico_socket_send(ep->s, ((uint8_t *)buf) + tot_len, len - tot_len);
         } else {
             if (bsd_to_pico_addr(&picoaddr, _dst, socklen) < 0) {
+                ep->error = PICO_ERR_EINVAL;
                 pico_mutex_unlock(picoLock);
                 return -1;
             }
@@ -395,10 +423,14 @@ int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, s
 
         /* If sending failed, return an error */
         if (retval < 0)
+        {
+            ep->error = pico_err;
+            pico_event_clear(ep, PICO_SOCK_EV_WR);
             return -1;
+        }
 
         /* No, error so clear the revent */
-        pico_event_clear(ep, PICO_SOCK_EV_WR);
+        //pico_event_clear(ep, PICO_SOCK_EV_WR);
 
         if (retval > 0)
         {
@@ -418,6 +450,8 @@ int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, s
 
             if (ev & (PICO_SOCK_EV_ERR | PICO_SOCK_EV_FIN | PICO_SOCK_EV_CLOSE ))
             {
+                ep->error = pico_err;
+                pico_event_clear(ep, PICO_SOCK_EV_WR);
                 /* closing and freeing the socket is done in the event handler */
                 return -1;
             }
@@ -425,6 +459,7 @@ int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, s
         tot_len += retval;
     }
     pico_signal_send(event_semaphore);
+    ep->error = pico_err;
     return tot_len;
 }
 
@@ -442,20 +477,30 @@ int pico_fcntl(int sd, int cmd, int arg)
         } else {
             ep->nonblocking = 0;
         }
+        ep->error = PICO_ERR_NOERR;
         return 0;
     }
 
     if (cmd == F_GETFL) {
         (void)arg; /* F_GETFL: arg is ignored */
+        ep->error = PICO_ERR_NOERR;
         if (ep->nonblocking)
             return O_NONBLOCK;
         else
             return 0;
     }
     pico_err = PICO_ERR_EINVAL;
+    ep->error = pico_err;
     return -1;
 }
 
+/* 
+ * RETURN VALUE
+ *   Upon  successful completion, recv_from() shall return the length of the
+ *   message in bytes. If no messages are available to be received and the 
+ *   peer has performed an orderly shutdown, recv() shall return 0. Otherwise,
+ *   −1 shall be returned and errno set to indicate the error.
+ */
 int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_addr, socklen_t *socklen)
 {
     int retval = 0;
@@ -466,13 +511,13 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
     unsigned char *buf = (unsigned char *)_buf;
     bsd_dbg("Recvfrom called \n");
 
-    if (!buf || (len <= 0)) {
-        pico_err = PICO_ERR_EINVAL;
-        return  -1;
-    }
-
     VALIDATE_NULL(ep);
 
+    if (!buf || (len <= 0)) {
+        pico_err = PICO_ERR_EINVAL;
+        ep->error = pico_err;
+        return -1;
+    }
 
     while (tot_len < len) {
         pico_mutex_lock(picoLock);
@@ -480,18 +525,21 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
         pico_mutex_unlock(picoLock);
         bsd_dbg("pico_socket_recvfrom returns %d, first bytes are %c-%c-%c-%c\n", retval, buf[0], buf[1], buf[2], buf[3]);
 
-        /* If receiving failed, return an error */
+        /* pico_socket_recvfrom failed */
+        if (retval < 0) {
+            ep->error = pico_err;
+            return 0; /* socket error or closed */
+        }
+
+        /* If received 0 bytes, return -1 or amount of bytes received */
         if (retval == 0) {
             pico_event_clear(ep, PICO_SOCK_EV_RD);
             if (tot_len > 0) {
                 bsd_dbg("Recvfrom returning %d\n", tot_len);
                 pico_signal_send(event_semaphore);
+                ep->error = pico_err;
                 return tot_len;
             }
-        }
-
-        if (retval < 0) {
-            return -1;
         }
 
         if (retval > 0) {
@@ -500,12 +548,14 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
                 {
                     if (pico_addr_to_bsd(_addr, *socklen, &picoaddr, ep->s->net->proto_number) < 0) {
                         pico_err = PICO_ERR_EINVAL;
+                        ep->error = pico_err;
                         return -1;
                     }
                     pico_port_to_bsd(_addr, *socklen, port);
                 }
                 /* If in a recvfrom call, for UDP we should return immediately after the first dgram */
                 pico_signal_send(event_semaphore);
+                ep->error = pico_err;
                 return retval + tot_len; 
             } else {
                 /* TCP: continue until recvfrom = 0, socket buffer empty */
@@ -515,7 +565,11 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
         }
 
         if (ep->nonblocking)
+        {
+            if (retval == 0)
+                retval = -1; /* BSD-speak: -1 == 0 bytes received */
             break;
+        }
 
         /* If recv bytes (retval) < len-tot_len: socket empty, we need to wait for a new RD event */
         if (retval < (len - tot_len))
@@ -527,14 +581,19 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
             {
                 /* closing and freeing the socket is done in the event handler */
                 pico_event_clear(ep, PICO_SOCK_EV_RD);
-                return -1;
+                ep->error = pico_err;
+                return 0; /* return 0 on a closed socket */
             }
         }
         tot_len += retval;
     }
-    pico_event_clear(ep, PICO_SOCK_EV_RD);
+    pico_event_clear(ep, PICO_SOCK_EV_RD); // What if still space available and we clear it here??
     bsd_dbg("Recvfrom returning %d (full block)\n", tot_len);
     pico_signal_send(event_semaphore);
+    ep->error = pico_err;
+
+    if (tot_len == 0)
+        tot_len = -1; /* BSD-speak: -1 == 0 bytes received */
     return tot_len;
 }
 
@@ -572,6 +631,7 @@ int pico_close(int sd)
         pico_mutex_unlock(picoLock);
     }
     ep->in_use = 0;
+    ep->error = pico_err;
     return 0;
 }
 
@@ -584,7 +644,10 @@ int pico_shutdown(int sd, int how)
     {
         pico_mutex_lock(picoLock);
         pico_socket_shutdown(ep->s, how);
+        ep->error = pico_err;
         pico_mutex_unlock(picoLock);
+    } else {
+        ep->error = PICO_ERR_EINVAL;
     }
     return 0;
 }
@@ -729,20 +792,16 @@ int pico_bsd_check_events(int sd, uint16_t events, uint16_t *revents)
 }
 
 /* wait for one of the selected events, return any of those that occurred */
-void * caller_select = 0;
 uint16_t pico_bsd_select(struct pico_bsd_endpoint *ep)
 {
     uint16_t events = ep->events & ep->revents; /* maybe an event we are waiting for, was already queued ? */
     /* wait for one of the selected events... */
-    caller_select = __builtin_return_address(0);
     while (!events)
     {
         pico_signal_wait(ep->signal);
         events = (ep->revents & ep->events); /* filter for the events we were waiting for */
     }
     /* the event we were waiting for happened, now report it */
-    caller_select = NULL;
-
     return events; /* return any event(s) that occurred, that we were waiting for */
 }
 
@@ -750,12 +809,10 @@ uint16_t pico_bsd_select(struct pico_bsd_endpoint *ep)
 /****************************/
 /* Private helper functions */
 /****************************/
-void * caller_wait = 0;
 static uint16_t pico_bsd_wait(struct pico_bsd_endpoint * ep, int read, int write, int close)
 {
   pico_mutex_lock(ep->mutex_lock);
 
-  caller_wait = __builtin_return_address(0);
   ep->events = PICO_SOCK_EV_ERR;
   ep->events |= PICO_SOCK_EV_FIN;
   ep->events |= PICO_SOCK_EV_CONN;
@@ -793,9 +850,9 @@ static void pico_socket_event(uint16_t ev, struct pico_socket *s)
         return;
     }
 
+
     if(ep->in_use != 1)
         return;
-
 
     pico_mutex_lock(ep->mutex_lock); /* lock over the complete body is needed,
                                         as the event might get cleared in another process.. */
@@ -1083,6 +1140,13 @@ int pico_getsockopt(int sockfd, int level, int optname, void *optval, socklen_t 
         pico_err = PICO_ERR_EFAULT;
         return -1;
     }
+
+    if (optname == SO_ERROR)
+    {
+        *((int*)optval) = ep->error;
+        return 0;
+    }
+
     pico_mutex_lock(ep->mutex_lock);
     ret = pico_socket_getoption(ep->s, sockopt_get_name(optname), optval);
     pico_mutex_unlock(ep->mutex_lock);
@@ -1110,6 +1174,8 @@ int pico_setsockopt(int sockfd, int level, int optname, const void *optval, sock
     }
     if ((optname == SO_REUSEADDR) || (optname == SO_REUSEPORT))
         return 0; /* Pretend it was OK. */
+    if (optname == SO_ERROR)
+        return PICO_ERR_ENOPROTOOPT;
 
     pico_mutex_lock(ep->mutex_lock);
     ret = pico_socket_setoption(ep->s, sockopt_get_name(optname), (void *)optval);
@@ -1123,3 +1189,126 @@ int pico_gettimeofday(struct timeval *tv, struct timezone *tz)
     return pico_sntp_gettimeofday((struct pico_timeval *)tv);
 }
 #endif
+
+const char *pico_inet_ntop(int af, const void *src, char *dst, socklen_t size)
+{
+    if ((!dst) || (!src))
+        return NULL;
+
+    switch (af)
+    {
+        case AF_INET:
+            if (size < INET_ADDRSTRLEN)
+                return NULL;
+            pico_ipv4_to_string(dst, *((const uint32_t *)src));
+            break;
+#ifdef PICO_SUPPORT_IPV6
+        case AF_INET6:
+            if (size < INET6_ADDRSTRLEN)
+                return NULL;
+            pico_ipv6_to_string(dst, ((struct in6_addr *)src)->s6_addr);
+            break;
+#endif
+        default:
+            return NULL;
+            break;
+    }
+    return dst;
+}
+
+char *pico_inet_ntoa(struct in_addr in)
+{
+    static char ipbuf[INET_ADDRSTRLEN];
+    pico_ipv4_to_string(ipbuf, (const uint32_t)in.s_addr);
+    return ipbuf;
+}
+
+
+int pico_select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_set *exceptfds, struct timeval *timeout)
+{
+    /*
+     * readfds:  watch if a READ  event becomes available
+     * writefds: watch if a WRITE event becomes available
+     * exceptfds: is NOT SUPPORTED by this implementation (yet)
+     */
+
+    /* 
+     * EV_READ:     sets the readfds
+     * EV_WRITE:    sets the writefds
+     * EV_CONN:     sets the readfds (a.k.a. someone connects to your listening socket)
+     * EV_CLOSE:    sets the readfds, then next recv() returns 0;
+     * EV_FIN:      sets the readfds, then next recv() returns 0;
+     * EV_ERR:      sets the exceptfds
+     */
+
+    // TODO: 
+    // 1. first try, if that fails, goto 2
+    // 2. wait for the select semaphore, so we know an event happened - OR - timeout
+    // 3. try again
+    // 4. if that fails again, goto 2
+
+    uint32_t old_tick = PICO_TIME();
+    int i = 0;
+    int nfds_out = 0;
+    pico_fd_set readfds_out = {};
+    pico_fd_set writefds_out = {};
+    pico_fd_set exceptfds_out = {};
+    /* loop over all possible file descriptors */
+    /* check if one has an event pending */
+    while (nfds_out == 0)
+    {
+        pico_bsd_stack_tick();
+        for (i = 0; i < nfds; i++)
+        {
+            int hit = 0;
+            struct pico_bsd_endpoint *ep = get_endpoint(i);
+            if (ep)
+            {
+                // READ event needed and available?
+                if (readfds && PICO_FD_ISSET(i,readfds) && (ep->revents & (PICO_SOCK_EV_CONN | PICO_SOCK_EV_CLOSE | PICO_SOCK_EV_RD)))
+                {
+                    hit++;
+                    PICO_FD_SET(i, &readfds_out);
+                }
+
+                // WRITE event needed and available?
+                if (writefds && PICO_FD_ISSET(i,writefds)) //&& (ep->revents & (PICO_SOCK_EV_WR)))
+                {
+                    if (ep->revents & (PICO_SOCK_EV_WR))
+                    {
+                        hit++;
+                        PICO_FD_SET(i, &writefds_out);
+                    }
+                }
+
+                // EXCEPTION event needed and available?
+                if (exceptfds && PICO_FD_ISSET(i,exceptfds) && (ep->revents & (PICO_SOCK_EV_WR)))
+                {
+                    hit++;
+                    PICO_FD_SET(i, &exceptfds_out);
+                }
+                
+                if (hit)
+                    nfds_out++;
+            }
+        }
+
+        if (old_tick != PICO_TIME())
+            break;
+    }
+
+    // Copy back result only if descriptor was valid
+    if (readfds)
+        memcpy(readfds, &readfds_out, sizeof(readfds));
+    if (writefds)
+        memcpy(writefds, &writefds_out, sizeof(writefds));
+    if (exceptfds)
+        memcpy(exceptfds, &exceptfds_out, sizeof(exceptfds));
+
+    // FOR DEBUGGING
+    if (nfds_out > 0)
+        return nfds_out;
+    return 0;
+}
+
+

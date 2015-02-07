@@ -44,6 +44,15 @@ static inline int sockopt_get_name(int posix_name)
 }
 
 
+#define pico_fd_set     fd_set
+#define	PICO_FD_SET     FD_SET
+#define	PICO_FD_CLR     FD_CLR
+#define	PICO_FD_ISSET   FD_ISSET
+#define	PICO_FD_ZERO    FD_ZERO
+
+#undef  fcntl
+#define fcntl           pico_fcntl
+
 #else
 typedef int socklen_t;
 #define AF_INET     (PICO_PROTO_IPV4)
@@ -60,10 +69,13 @@ typedef int socklen_t;
 #define IP_DROP_MEMBERSHIP (PICO_IP_DROP_MEMBERSHIP)
 #define SO_RCVBUF    (PICO_SOCKET_OPT_RCVBUF)
 #define SO_SNDBUF    (PICO_SOCKET_OPT_SNDBUF)
+#define SO_ERROR        (4103)
 #define SO_REUSEADDR    (2)
 #define SO_REUSEPORT    (15)
 #define sockopt_get_name(x) ((x))
 
+#define INET_ADDRSTRLEN    (16)
+#define INET6_ADDRSTRLEN   (46)
 
 struct sockaddr {
     uint16_t sa_family;
@@ -123,6 +135,27 @@ struct hostent {
 };
 #define h_addr h_addr_list[0] /* for backward compatibility */
 
+/* fd_set */
+#  ifndef	FD_SETSIZE
+#	define	FD_SETSIZE	64 /* 64 files max, 1 bit per file -> 64bits = 8 bytes */
+#  endif
+
+struct pico_fd_set_s {
+	uint8_t	fds_bits[FD_SETSIZE/8];
+};
+
+typedef struct pico_fd_set_s pico_fd_set;
+
+#  define	PICO_FD_SET  (n, p)	((p)->fds_bits[(n)/8] |=  (1u << ((n) % 8)))
+#  define	PICO_FD_CLR  (n, p)	((p)->fds_bits[(n)/8] &= ~(1u << ((n) % 8)))
+#  define	PICO_FD_ISSET(n, p)	((p)->fds_bits[(n)/8] &   (1u << ((n) % 8)))
+// TODO: not portable?
+#  define	PICO_FD_ZERO (p)	(__extension__ (void)({ \
+                                      size_t __i; \
+                                      char *__tmp = (char *)p; \
+                                      for (__i = 0; __i < sizeof (*(p)); ++__i) \
+                                        *__tmp++ = 0; \
+                                 }))
 
 /* Not socket related */
 #ifndef __time_t_defined
@@ -141,7 +174,8 @@ struct timezone {
 };
 #define _TIMEVAL_DEFINED
 #endif
-#endif
+#endif /* STDSOCKET */
+
 
 #ifndef F_GETFL
 # define F_GETFL 3
@@ -187,8 +221,9 @@ void pico_freeaddrinfo(struct addrinfo *res);
 int pico_setsockopt          (int sockfd, int level, int optname, const void *optval, socklen_t optlen); 
 int pico_getsockopt          (int sockfd, int level, int optname, void *optval, socklen_t *optlen);
 
+int pico_select              (int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_set *exceptfds, struct timeval *timeout);
+
 #ifdef VERY_COOL
-int pico_select              (int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout);
 int pico_poll                (struct pollfd *pfd, nfds_t npfd, int timeout);
 int pico_ppoll               (struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout_ts, const sigset_t *sigmask);
 int pico_pselect             (int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout, 
@@ -198,6 +233,10 @@ int pico_pselect             (int nfds, fd_set *readfds, fd_set *writefds, fd_se
 #ifdef PICO_SUPPORT_SNTP_CLIENT
 int pico_gettimeofday(struct timeval *tv, struct timezone *tz);
 #endif
+
+/* arpa/inet.h */
+const char *pico_inet_ntop   (int af, const void *src, char *dst, socklen_t size);
+char       *pico_inet_ntoa   (struct in_addr in);
 
 /* Non-POSIX */
 void                         pico_bsd_init(void);
@@ -231,6 +270,9 @@ uint16_t                     pico_bsd_select(struct pico_bsd_endpoint *ep);
 #  define htonl long_be
 #  define ntohs short_be
 #  define ntohl long_be
+#  define inet_ntoa pico_inet_ntoa
+#  define inet_ntop pico_inet_ntop
+#  define select pico_select
 #endif
 
 #endif /* PICO_BSD_SOCKETS_H_ */
