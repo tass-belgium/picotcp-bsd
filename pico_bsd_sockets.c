@@ -1226,12 +1226,6 @@ char *pico_inet_ntoa(struct in_addr in)
 
 int pico_select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_set *exceptfds, struct timeval *timeout)
 {
-    /*
-     * readfds:  watch if a READ  event becomes available
-     * writefds: watch if a WRITE event becomes available
-     * exceptfds: is NOT SUPPORTED by this implementation (yet)
-     */
-
     /* 
      * EV_READ:     sets the readfds
      * EV_WRITE:    sets the writefds
@@ -1247,7 +1241,7 @@ int pico_select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_s
     // 3. try again
     // 4. if that fails again, goto 2
 
-    uint32_t old_tick = PICO_TIME();
+    uint32_t end_tick_ms = PICO_TIME_MS() + (timeout->tv_sec * 1000) + ((timeout->tv_usec) / 1000);
     int i = 0;
     int nfds_out = 0;
     pico_fd_set readfds_out = {};
@@ -1272,7 +1266,7 @@ int pico_select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_s
                 }
 
                 // WRITE event needed and available?
-                if (writefds && PICO_FD_ISSET(i,writefds)) //&& (ep->revents & (PICO_SOCK_EV_WR)))
+                if (writefds && PICO_FD_ISSET(i,writefds) && (ep->revents & (PICO_SOCK_EV_WR)))
                 {
                     if (ep->revents & (PICO_SOCK_EV_WR))
                     {
@@ -1282,7 +1276,7 @@ int pico_select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_s
                 }
 
                 // EXCEPTION event needed and available?
-                if (exceptfds && PICO_FD_ISSET(i,exceptfds) && (ep->revents & (PICO_SOCK_EV_WR)))
+                if (exceptfds && PICO_FD_ISSET(i,exceptfds) && (ep->revents & (PICO_SOCK_EV_ERR)))
                 {
                     hit++;
                     PICO_FD_SET(i, &exceptfds_out);
@@ -1293,7 +1287,8 @@ int pico_select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_s
             }
         }
 
-        if (old_tick != PICO_TIME())
+        // Timeout
+        if (PICO_TIME_MS() > end_tick_ms)
             break;
     }
 
@@ -1305,10 +1300,7 @@ int pico_select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_s
     if (exceptfds)
         memcpy(exceptfds, &exceptfds_out, sizeof(exceptfds));
 
-    // FOR DEBUGGING
-    if (nfds_out > 0)
-        return nfds_out;
-    return 0;
+    return nfds_out;
 }
 
 
