@@ -55,17 +55,17 @@ int pico_mutex_lock_timeout(void * mutex, int timeout)
 	if(mutex != NULL)
 	{
         struct osal_mutex * mtx = mutex;
-        while ((mtx->mutex == 0) && (timeout > 0))
+        pico_time timestamp = PICO_TIME_MS();
+        while (mtx->mutex == 0)
         {
-            pico_time now = PICO_TIME_MS();
             pico_stack_tick();
-            /* wait 1 ms */
-            while (now == PICO_TIME_MS())
-            {
-                usleep(500);
-            }
-            if (timeout != -1) /* infinite timeout? */
-                timeout--;
+            #ifdef _POSIX_VERSION
+              usleep(500);
+            #endif
+
+            /* break on timeout unless infinite timeout */
+            if ((timeout != -1) && (PICO_TIME_MS() > (timestamp + timeout)))
+                break;
         }
         if (mtx->mutex == 1)
         {

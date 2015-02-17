@@ -13,6 +13,8 @@ Author: Maxime Vincent, Daniele Lacamera
 #include "pico_osal.h"
 #include "pico_sntp_client.h"
 
+#include <errno.h> /* should be there in C99 */
+
 #define SOCK_OPEN                   0
 #define SOCK_BOUND                  1
 #define SOCK_LISTEN                 2
@@ -53,12 +55,14 @@ struct pico_bsd_endpoint {
 #define VALIDATE_ONE(param,value) \
     if(param != value) { \
         pico_err = PICO_ERR_EINVAL; \
+        errno = pico_err; \
         return -1; \
     }
 
 #define VALIDATE_TWO(param,value1,value2) \
     if(param != value1 && param != value2) { \
         pico_err = PICO_ERR_EINVAL; \
+        errno = pico_err; \
         return -1; \
     }
 
@@ -175,6 +179,7 @@ int pico_bind(int sd, struct sockaddr * local_addr, socklen_t socklen)
     if (bsd_to_pico_addr(&addr, local_addr, socklen) < 0)
     {
         ep->error = PICO_ERR_EINVAL;
+        errno = pico_err;
         return -1;
     }
     port = bsd_to_pico_port(local_addr, socklen);
@@ -183,6 +188,7 @@ int pico_bind(int sd, struct sockaddr * local_addr, socklen_t socklen)
     if(pico_socket_bind(ep->s, &addr, &port) < 0)
     {
         ep->error = pico_err;
+        errno = pico_err;
         pico_mutex_unlock(picoLock);
         return -1;
     }
@@ -205,6 +211,7 @@ int pico_getsockname(int sd, struct sockaddr * local_addr, socklen_t *socklen)
     if(pico_socket_getname(ep->s, &addr, &port, &proto) < 0)
     {
         ep->error = pico_err;
+        errno = pico_err;
         pico_mutex_unlock(picoLock);
         return -1;
     }
@@ -216,6 +223,7 @@ int pico_getsockname(int sd, struct sockaddr * local_addr, socklen_t *socklen)
 
     if (pico_addr_to_bsd(local_addr, *socklen, &addr, proto) < 0) {
         ep->error = pico_err;
+        errno = pico_err;
         pico_mutex_unlock(picoLock);
         return -1;
     }
@@ -268,6 +276,7 @@ int pico_listen(int sd, int backlog)
     if(pico_socket_listen(ep->s, backlog) < 0)
     {
         ep->error = pico_err;
+        errno = pico_err;
         pico_mutex_unlock(picoLock);
         return -1;
     }
@@ -290,6 +299,7 @@ int pico_connect(int sd, struct sockaddr *_saddr, socklen_t socklen)
     if (bsd_to_pico_addr(&addr, _saddr, socklen) < 0)
     {
         ep->error = PICO_ERR_EINVAL;
+        errno = pico_err;
         return -1;
     }
     port = bsd_to_pico_port(_saddr, socklen);
@@ -300,7 +310,6 @@ int pico_connect(int sd, struct sockaddr *_saddr, socklen_t socklen)
     if (ep->nonblocking) {
         pico_err = PICO_ERR_EBUSY; /* should be EINPROGRESS */
         ep->error = pico_err;
-        //return -1;
     } else {
         /* wait for event */
         ev = pico_bsd_wait(ep, 0, 0, 0); /* wait for ERR, FIN and CONN */
@@ -317,6 +326,7 @@ int pico_connect(int sd, struct sockaddr *_saddr, socklen_t socklen)
             pico_socket_close(ep->s);
     }
     ep->error = pico_err;
+    errno = pico_err;
     return -1;
 }
 
@@ -339,6 +349,7 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
     if (!client_ep)
     {
         ep->error = pico_err;
+        errno = pico_err;
         pico_mutex_unlock(picoLock);
         return -1;
     }
@@ -363,6 +374,7 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
         if (!client_ep->s)
         {
             ep->error = pico_err;
+            errno = pico_err;
             pico_mutex_unlock(picoLock);
             return -1;
         }
@@ -385,6 +397,7 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
         return client_ep->socket_fd;
     }
     ep->error = pico_err;
+    errno = pico_err;
     return -1;
 }
 
@@ -400,6 +413,7 @@ int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, s
 
     if (!buf || (len <= 0)) {
         pico_err = PICO_ERR_EINVAL;
+        errno = pico_err;
         ep->error = pico_err;
         return -1;
     }
@@ -412,6 +426,7 @@ int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, s
         } else {
             if (bsd_to_pico_addr(&picoaddr, _dst, socklen) < 0) {
                 ep->error = PICO_ERR_EINVAL;
+                errno = pico_err;
                 pico_mutex_unlock(picoLock);
                 return -1;
             }
@@ -424,6 +439,7 @@ int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, s
         if (retval < 0)
         {
             ep->error = pico_err;
+            errno = pico_err;
             pico_event_clear(ep, PICO_SOCK_EV_WR);
             return -1;
         }
@@ -450,6 +466,7 @@ int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, s
             if (ev & (PICO_SOCK_EV_ERR | PICO_SOCK_EV_FIN | PICO_SOCK_EV_CLOSE))
             {
                 ep->error = pico_err;
+                errno = pico_err;
                 pico_event_clear(ep, PICO_SOCK_EV_WR);
                 /* closing and freeing the socket is done in the event handler */
                 return -1;
@@ -466,6 +483,7 @@ int pico_fcntl(int sd, int cmd, int arg)
     struct pico_bsd_endpoint *ep = get_endpoint(sd);
     if (!ep) {
         pico_err = PICO_ERR_EINVAL;
+        errno = pico_err;
         return -1;
     }
 
@@ -488,6 +506,7 @@ int pico_fcntl(int sd, int cmd, int arg)
             return 0;
     }
     pico_err = PICO_ERR_EINVAL;
+    errno = pico_err;
     ep->error = pico_err;
     return -1;
 }
@@ -513,6 +532,7 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
 
     if (!buf || (len <= 0)) {
         pico_err = PICO_ERR_EINVAL;
+        errno = pico_err;
         ep->error = pico_err;
         return -1;
     }
@@ -545,6 +565,7 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
                 {
                     if (pico_addr_to_bsd(_addr, *socklen, &picoaddr, ep->s->net->proto_number) < 0) {
                         pico_err = PICO_ERR_EINVAL;
+                        errno = pico_err;
                         ep->error = pico_err;
                         return -1;
                     }
@@ -563,7 +584,11 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
         if (ep->nonblocking)
         {
             if (retval == 0)
+            {
+                pico_err = PICO_ERR_EAGAIN; /* or EWOULDBLOCK */
+                errno = pico_err;
                 retval = -1; /* BSD-speak: -1 == 0 bytes received */
+            }
             break;
         }
 
@@ -588,7 +613,10 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
     ep->error = pico_err;
 
     if (tot_len == 0)
+    {
+        errno = pico_err;
         tot_len = -1; /* BSD-speak: -1 == 0 bytes received */
+    }
     return tot_len;
 }
 
@@ -644,6 +672,7 @@ int pico_shutdown(int sd, int how)
         pico_mutex_unlock(picoLock);
     } else {
         ep->error = PICO_ERR_EINVAL;
+        errno = pico_err;
     }
     return 0;
 }
@@ -689,6 +718,7 @@ static int pico_port_to_bsd(struct sockaddr *_saddr, socklen_t socklen, uint16_t
         return 0;
     }
     pico_err = PICO_ERR_EINVAL;
+    errno = pico_err;
     return -1;
 }
 
@@ -739,6 +769,7 @@ static int new_sd(struct pico_bsd_endpoint *ep)
     if (!new) {
         PicoSocket_max--;
         pico_err = PICO_ERR_ENOMEM;
+        errno = pico_err;
         return -1;
     }
     if (sd > 0) {
@@ -756,6 +787,7 @@ static struct pico_bsd_endpoint *pico_bsd_create_socket(void)
     struct pico_bsd_endpoint *ep = pico_zalloc(sizeof(struct pico_bsd_endpoint));
     if (!ep) {
         pico_err = PICO_ERR_ENOMEM;
+        errno = pico_err;
     }
     ep->in_use = 1;
     ep->socket_fd = get_free_sd(ep);
@@ -770,6 +802,7 @@ static struct pico_bsd_endpoint *get_endpoint(int sd)
     if ((sd > PicoSocket_max) || (sd < 0) || 
          (PicoSockets[sd]->in_use == 0)) {
         pico_err = PICO_ERR_EINVAL;
+        errno = pico_err;
         return NULL;
     }
     return PicoSockets[sd];
@@ -904,6 +937,7 @@ static struct dnsquery_cookie *dnsquery_cookie_create(struct addrinfo **res, uin
     struct dnsquery_cookie *ck = pico_zalloc(sizeof(struct dnsquery_cookie));
     if (!ck) {
         pico_err = PICO_ERR_ENOMEM;
+        errno = pico_err;
         return NULL;
     }
     ck->signal = pico_signal_init();
@@ -1121,14 +1155,17 @@ int pico_getsockopt(int sockfd, int level, int optname, void *optval, socklen_t 
     bsd_dbg("called getsockopt\n");
     if (level != SOL_SOCKET) {
         pico_err = PICO_ERR_EPROTONOSUPPORT;
+        errno = pico_err;
         return -1;
     }
     if (!ep) {
         pico_err = PICO_ERR_EINVAL;
+        errno = pico_err;
         return -1;
     }
     if (!optval) {
         pico_err = PICO_ERR_EFAULT;
+        errno = pico_err;
         return -1;
     }
 
@@ -1153,14 +1190,17 @@ int pico_setsockopt(int sockfd, int level, int optname, const void *optval, sock
     bsd_dbg("called setsockopt\n");
     if (level != SOL_SOCKET) {
         pico_err = PICO_ERR_EPROTONOSUPPORT;
+        errno = pico_err;
         return -1;
     }
     if (!ep) {
         pico_err = PICO_ERR_EINVAL;
+        errno = pico_err;
         return -1;
     }
     if (!optval) {
         pico_err = PICO_ERR_EFAULT;
+        errno = pico_err;
         return -1;
     }
     if ((optname == SO_REUSEADDR) || (optname == SO_REUSEPORT))
