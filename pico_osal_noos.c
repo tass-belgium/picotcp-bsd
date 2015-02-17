@@ -55,18 +55,26 @@ int pico_mutex_lock_timeout(void * mutex, int timeout)
 	if(mutex != NULL)
 	{
         struct osal_mutex * mtx = mutex;
-        while ((mtx->mutex == 0) && (timeout))
+        while ((mtx->mutex == 0) && (timeout > 0))
         {
             pico_time now = PICO_TIME_MS();
             pico_stack_tick();
-            while (now == PICO_TIME_MS()); /* wait 1 ms */
+            /* wait 1 ms */
+            while (now == PICO_TIME_MS())
+            {
+                usleep(500);
+            }
             if (timeout != -1) /* infinite timeout? */
                 timeout--;
         }
         if (mtx->mutex == 1)
+        {
             mtx->mutex = 0; /* take the mutex */
+        }
         else
+        {
             retval = -1; /* timeout */
+        }
 	}
     return retval;
 }
@@ -142,7 +150,7 @@ int pico_thread_create()
 };
 
 
-int pico_thread_somethingelse()
+int pico_thread_destroy()
 {
     return 0;
 };

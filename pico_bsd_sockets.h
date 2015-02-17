@@ -4,7 +4,7 @@ See LICENSE and COPYING for usage.
 Do not redistribute without a written permission by the Copyright
 holders.
 
-Author: Andrei Carp, Maxime Vincent
+Author: Maxime Vincent, Daniele Lacamera
 *********************************************************************/
 #include "pico_defines.h"
 #include "pico_constants.h"
@@ -149,13 +149,7 @@ typedef struct pico_fd_set_s pico_fd_set;
 #  define	PICO_FD_SET  (n, p)	((p)->fds_bits[(n)/8] |=  (1u << ((n) % 8)))
 #  define	PICO_FD_CLR  (n, p)	((p)->fds_bits[(n)/8] &= ~(1u << ((n) % 8)))
 #  define	PICO_FD_ISSET(n, p)	((p)->fds_bits[(n)/8] &   (1u << ((n) % 8)))
-// TODO: not portable?
-#  define	PICO_FD_ZERO (p)	(__extension__ (void)({ \
-                                      size_t __i; \
-                                      char *__tmp = (char *)p; \
-                                      for (__i = 0; __i < sizeof (*(p)); ++__i) \
-                                        *__tmp++ = 0; \
-                                 }))
+#  define	PICO_FD_ZERO (p)	(memset(p->fds_bits, 0, sizeof(struct pico_fd_set_s));)
 
 /* Not socket related */
 #ifndef __time_t_defined
