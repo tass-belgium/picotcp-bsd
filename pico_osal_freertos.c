@@ -44,6 +44,11 @@ void * pico_mutex_init(void)
     if (!mutex)
         return NULL;
     vSemaphoreCreateBinary(mutex->mutex);
+    if (!(mutex->mutex))
+    {
+        pico_free(mutex);
+        return NULL;
+    }
     mutex->idx = mtx_number++;
     return mutex;
 }
