@@ -73,7 +73,7 @@ static uint16_t pico_bsd_wait(struct pico_bsd_endpoint * ep, int read, int write
 static void pico_socket_event(uint16_t ev, struct pico_socket *s);
 
 /* pico stack lock */
-static void * picoLock = NULL;
+void * picoLock = NULL;
 
 /************************/
 /* Public API functions */

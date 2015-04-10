@@ -22,6 +22,7 @@ Author: Maxime Vincent, Daniele Lacamera
 #define SOCKSIZE  16
 #define SOCKSIZE6 28
 struct pico_bsd_endpoint;
+void   *picoLock;
 
 #if defined STDSOCKET || defined __socklen_t_defined
 #include "sys/types.h"
