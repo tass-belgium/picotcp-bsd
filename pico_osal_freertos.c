@@ -45,7 +45,6 @@ void * pico_signal_init(void)
         return NULL;
     signal->mutex= xSemaphoreCreateBinary();
     signal->idx = mtx_number++;
-    pico_mutex_lock(signal);
     return signal;
 }
 
@@ -114,7 +113,6 @@ void *pico_mutex_init(void)
         return NULL;
     mutex->mutex = xSemaphoreCreateMutex();
     mutex->idx = mtx_number++;
-    pico_mutex_lock(mutex);
     return mutex;
 }
 
