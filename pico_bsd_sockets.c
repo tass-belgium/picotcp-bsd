@@ -1216,8 +1216,12 @@ int pico_setsockopt(int sockfd, int level, int optname, const void *optval, sock
 #ifdef PICO_SUPPORT_SNTP_CLIENT
 int pico_gettimeofday(struct timeval *tv, struct timezone *tz)
 {
+    int ret;
     (void)tz;
-    return pico_sntp_gettimeofday((struct pico_timeval *)tv);
+
+    ret= pico_sntp_gettimeofday((struct pico_timeval *)tv);
+    tv->tv_usec= tv->tv_usec * 1000; /* pico_timeval uses milliseconds instead of microseconds */
+    return ret;
 }
 #endif
 
