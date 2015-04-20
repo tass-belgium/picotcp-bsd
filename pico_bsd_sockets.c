@@ -168,7 +168,7 @@ int pico_newsocket(int domain, int type, int proto)
 
 int pico_bind(int sd, struct sockaddr * local_addr, socklen_t socklen)
 { 
-    union pico_address addr = { 0 };
+    union pico_address addr = { .ip4 = { 0 } };
     uint16_t port;
     struct pico_bsd_endpoint *ep = get_endpoint(sd);
 
@@ -1342,11 +1342,11 @@ int pico_select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_s
 
     /* Copy back result only if descriptor was valid */
     if (readfds)
-        memcpy(readfds, &readfds_out, sizeof(readfds));
+        memcpy(readfds, &readfds_out, sizeof(pico_fd_set));
     if (writefds)
-        memcpy(writefds, &writefds_out, sizeof(writefds));
+        memcpy(writefds, &writefds_out, sizeof(pico_fd_set));
     if (exceptfds)
-        memcpy(exceptfds, &exceptfds_out, sizeof(exceptfds));
+        memcpy(exceptfds, &exceptfds_out, sizeof(pico_fd_set));
 
     bsd_dbg_select("=== OUT: PICO SELECT === fds changed: %d\n", nfds_out);
 

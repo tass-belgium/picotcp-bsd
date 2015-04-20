@@ -123,7 +123,7 @@ void pico_mutex_deinit(void * mutex)
 
 int pico_mutex_lock_timeout(void * mutex, int timeout)
 {
-    pico_signal_wait_timeout(mutex, timeout);
+    return pico_signal_wait_timeout(mutex, timeout);
 }
 
 void pico_mutex_lock(void * mutex)
