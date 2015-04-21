@@ -1219,8 +1219,12 @@ int pico_gettimeofday(struct timeval *tv, struct timezone *tz)
     int ret;
     (void)tz;
 
-    ret= pico_sntp_gettimeofday((struct pico_timeval *)tv);
-    tv->tv_usec= tv->tv_usec * 1000; /* pico_timeval uses milliseconds instead of microseconds */
+    struct pico_timeval ptv;
+
+    ret= pico_sntp_gettimeofday(&ptv);
+
+    tv->tv_sec = ptv.tv_sec;
+    tv->tv_usec= ptv.tv_msec * 1000; /* pico_timeval uses milliseconds instead of microseconds */
     return ret;
 }
 #endif
