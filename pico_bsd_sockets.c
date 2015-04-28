@@ -1227,6 +1227,12 @@ int pico_gettimeofday(struct timeval *tv, struct timezone *tz)
     tv->tv_usec= ptv.tv_msec * 1000; /* pico_timeval uses milliseconds instead of microseconds */
     return ret;
 }
+
+long XTIME(void) {
+    struct timeval t;
+    pico_gettimeofday(&t, NULL); 
+    return (long)t.tv_sec;
+}
 #endif
 
 const char *pico_inet_ntop(int af, const void *src, char *dst, socklen_t size)
@@ -1356,5 +1362,4 @@ int pico_select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_s
 
     return nfds_out;
 }
-
 

@@ -227,6 +227,8 @@ int pico_pselect             (int nfds, fd_set *readfds, fd_set *writefds, fd_se
 
 #ifdef PICO_SUPPORT_SNTP_CLIENT
 int pico_gettimeofday(struct timeval *tv, struct timezone *tz);
+long XTIME(void);
+#define XGMTIME gmtime
 #endif
 
 /* arpa/inet.h */
