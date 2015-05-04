@@ -151,6 +151,7 @@ int pico_newsocket(int domain, int type, int proto)
     if (!ep->s)
     {
         pico_free(ep);
+        pico_mutex_unlock(picoLock);
         return -1;
     }
 
