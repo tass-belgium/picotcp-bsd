@@ -1033,14 +1033,24 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
     *res = NULL;
     (void)service;
     bsd_dbg("Called pico_getaddrinfo, looking for %s\n", node);
+
+#ifdef PICO_SUPPORT_IPV6
+    struct sockaddr_in6 sa6;
+    if (pico_string_to_ipv6(node, sa6.sin6_addr.s6_addr) == 0) {
+        ck6 = dnsquery_cookie_create(res, 0);
+        dns_ip6_cb((char *)node, ck6);
+        return 0;
+    }
+#endif
+
+    if (pico_string_to_ipv4(node, &sa4.sin_addr.s_addr) == 0) {
+        ck4 = dnsquery_cookie_create(res, 0);
+        dns_ip4_cb((char*)node, ck4);
+        return 0;
+    }
+
 #ifdef PICO_SUPPORT_IPV6
     {
-        struct sockaddr_in6 sa6;
-        if (pico_string_to_ipv6(node, sa6.sin6_addr.s6_addr) == 0) {
-            ck6 = dnsquery_cookie_create(res, 0);
-            dns_ip6_cb((char *)node, ck6);
-            return 0;
-        }
         if (!hints || (hints->ai_family == AF_INET6)) {
             ck6 = dnsquery_cookie_create(res, 1);
             if (!ck6)
@@ -1052,11 +1062,6 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
         }
     }
 #endif /* PICO_SUPPORT_IPV6 */
-    if (pico_string_to_ipv4(node, &sa4.sin_addr.s_addr) == 0) {
-        ck4 = dnsquery_cookie_create(res, 0);
-        dns_ip4_cb((char*)node, ck4);
-        return 0;
-    }
 
     if (!hints || (hints->ai_family == AF_INET)) {
         ck4 = dnsquery_cookie_create(res, 1);
@@ -1074,6 +1079,7 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
             ck6->cleanup = 1;
         }
     }
+
     if (ck4) {
         if (pico_signal_wait_timeout(ck4->signal, 2000) == 0) {
             pico_signal_deinit(ck4->signal);
