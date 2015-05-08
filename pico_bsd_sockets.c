@@ -1039,6 +1039,8 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
     if (pico_string_to_ipv6(node, sa6.sin6_addr.s6_addr) == 0) {
         ck6 = dnsquery_cookie_create(res, 0);
         dns_ip6_cb((char *)node, ck6);
+        pico_signal_deinit(ck6->signal);
+        pico_free(ck6);
         return 0;
     }
 #endif
@@ -1046,6 +1048,8 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
     if (pico_string_to_ipv4(node, &sa4.sin_addr.s_addr) == 0) {
         ck4 = dnsquery_cookie_create(res, 0);
         dns_ip4_cb((char*)node, ck4);
+        pico_signal_deinit(ck4->signal);
+        pico_free(ck4);
         return 0;
     }
 
