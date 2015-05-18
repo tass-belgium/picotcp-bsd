@@ -22,6 +22,7 @@ Author: Maxime Vincent, Daniele Lacamera
 #define SOCK_ERROR                  4
 #define SOCK_RESET_BY_PEER          5
 #define SOCK_CLOSED                 100
+#define GETADDRINFO_TIMEOUT         5000
 
 #define bsd_dbg(...)                do {} while(0)
 #define bsd_dbg_select(...)         do {} while(0)
@@ -1076,7 +1077,7 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
     }
 
     if (ck6) {
-        if (pico_signal_wait_timeout(ck6->signal, 2000) == 0) {
+        if (pico_signal_wait_timeout(ck6->signal, GETADDRINFO_TIMEOUT) == 0) {
             pico_signal_deinit(ck6->signal);
             pico_free(ck6);
         } else {
@@ -1085,7 +1086,7 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
     }
 
     if (ck4) {
-        if (pico_signal_wait_timeout(ck4->signal, 2000) == 0) {
+        if (pico_signal_wait_timeout(ck4->signal, GETADDRINFO_TIMEOUT) == 0) {
             pico_signal_deinit(ck4->signal);
             pico_free(ck4);
         } else {
