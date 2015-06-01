@@ -372,7 +372,7 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
         client_ep->s = pico_socket_accept(ep->s,&picoaddr,&port);
         if (!client_ep->s)
         {
-            pico_free(client_ep);
+            free_up_ep(client_ep);
             ep->error = pico_err;
             errno = pico_err;
             pico_mutex_unlock(picoLock);
@@ -386,7 +386,7 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
             *socklen = SOCKSIZE6;
         client_ep->state = SOCK_CONNECTED;
         if (pico_addr_to_bsd(_orig, *socklen, &picoaddr, client_ep->s->net->proto_number) < 0) {
-            pico_free(client_ep);
+            free_up_ep(client_ep);
             pico_mutex_unlock(picoLock);
             return -1;
         }
@@ -397,7 +397,7 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
         ep->error = pico_err;
         return client_ep->socket_fd;
     }
-    pico_free(client_ep);
+    free_up_ep(client_ep);
     ep->error = pico_err;
     errno = pico_err;
     return -1;
