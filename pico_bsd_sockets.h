@@ -150,7 +150,7 @@ typedef struct pico_fd_set_s pico_fd_set;
 #  define	PICO_FD_SET(n, p)   ((p)->fds_bits[(n)/8] |=  (1u << ((n) % 8)))
 #  define	PICO_FD_CLR(n, p)   ((p)->fds_bits[(n)/8] &= ~(1u << ((n) % 8)))
 #  define	PICO_FD_ISSET(n, p) ((p)->fds_bits[(n)/8] &   (1u << ((n) % 8)))
-#  define	PICO_FD_ZERO(p)     (memset(p->fds_bits, 0, sizeof(struct pico_fd_set_s));)
+#  define	PICO_FD_ZERO(p)     (memset((p)->fds_bits, 0, sizeof(struct pico_fd_set_s));)
 
 /* Not socket related */
 #ifndef __time_t_defined
