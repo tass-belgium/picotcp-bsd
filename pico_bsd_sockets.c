@@ -343,24 +343,6 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
     VALIDATE_NULL(ep);
     VALIDATE_ONE(ep->state, SOCK_LISTEN);
 
-    pico_mutex_lock(picoLock);
-
-    client_ep = pico_bsd_create_socket();
-
-    if (!client_ep)
-    {
-        ep->error = pico_err;
-        errno = pico_err;
-        pico_mutex_unlock(picoLock);
-        return -1;
-    }
-
-    client_ep->state = SOCK_OPEN;
-    client_ep->mutex_lock = pico_mutex_init();
-    client_ep->signal = pico_signal_init();
-
-    pico_mutex_unlock(picoLock);
-
     if (ep->nonblocking)
         events = PICO_SOCK_EV_CONN;
     else 
@@ -368,16 +350,31 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
 
     if(events & PICO_SOCK_EV_CONN)
     {
+        struct pico_socket *s;
         pico_mutex_lock(picoLock);
-        client_ep->s = pico_socket_accept(ep->s,&picoaddr,&port);
-        if (!client_ep->s)
+        s = pico_socket_accept(ep->s,&picoaddr,&port);
+        if (!s)
         {
-            free_up_ep(client_ep);
             ep->error = pico_err;
             errno = pico_err;
             pico_mutex_unlock(picoLock);
             return -1;
         }
+
+        /* Create a new client EP, only after the accept returned succesfully */
+        client_ep = pico_bsd_create_socket();
+        if (!client_ep)
+        {
+            ep->error = pico_err;
+            errno = pico_err;
+            pico_mutex_unlock(picoLock);
+            return -1;
+        }
+        client_ep->s = s;
+        client_ep->state = SOCK_OPEN;
+        client_ep->mutex_lock = pico_mutex_init();
+        client_ep->signal = pico_signal_init();
+
         client_ep->s->priv = client_ep;
         pico_event_clear(ep, PICO_SOCK_EV_CONN); /* clear the CONN event the listening socket */
         if (client_ep->s->net->proto_number == PICO_PROTO_IPV4)
