@@ -22,7 +22,6 @@ Author: Maxime Vincent, Daniele Lacamera
 #define SOCK_ERROR                  4
 #define SOCK_RESET_BY_PEER          5
 #define SOCK_CLOSED                 100
-#define GETADDRINFO_TIMEOUT         5000
 
 #define bsd_dbg(...)                do {} while(0)
 #define bsd_dbg_select(...)         do {} while(0)
@@ -362,8 +361,6 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
 
     pico_mutex_unlock(picoLock);
 
-
-
     if (ep->nonblocking)
         events = PICO_SOCK_EV_CONN;
     else 
@@ -375,6 +372,7 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
         client_ep->s = pico_socket_accept(ep->s,&picoaddr,&port);
         if (!client_ep->s)
         {
+            pico_free(client_ep);
             ep->error = pico_err;
             errno = pico_err;
             pico_mutex_unlock(picoLock);
@@ -388,6 +386,7 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
             *socklen = SOCKSIZE6;
         client_ep->state = SOCK_CONNECTED;
         if (pico_addr_to_bsd(_orig, *socklen, &picoaddr, client_ep->s->net->proto_number) < 0) {
+            pico_free(client_ep);
             pico_mutex_unlock(picoLock);
             return -1;
         }
@@ -398,6 +397,7 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
         ep->error = pico_err;
         return client_ep->socket_fd;
     }
+    pico_free(client_ep);
     ep->error = pico_err;
     errno = pico_err;
     return -1;
@@ -1077,7 +1077,7 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
     }
 
     if (ck6) {
-        if (pico_signal_wait_timeout(ck6->signal, GETADDRINFO_TIMEOUT) == 0) {
+        if (pico_signal_wait_timeout(ck6->signal, 2000) == 0) {
             pico_signal_deinit(ck6->signal);
             pico_free(ck6);
         } else {
@@ -1086,7 +1086,7 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
     }
 
     if (ck4) {
-        if (pico_signal_wait_timeout(ck4->signal, GETADDRINFO_TIMEOUT) == 0) {
+        if (pico_signal_wait_timeout(ck4->signal, 2000) == 0) {
             pico_signal_deinit(ck4->signal);
             pico_free(ck4);
         } else {
