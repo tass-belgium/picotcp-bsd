@@ -301,6 +301,9 @@ uint16_t                     pico_bsd_select(struct pico_bsd_endpoint *ep);
 #  define inet_ntoa pico_inet_ntoa
 #  define inet_ntop pico_inet_ntop
 #  define select pico_select
+#  define pselect pico_pselect
+#  define poll pico_poll
+#  define ppoll pico_ppoll
 #endif
 
 #endif /* PICO_BSD_SOCKETS_H_ */

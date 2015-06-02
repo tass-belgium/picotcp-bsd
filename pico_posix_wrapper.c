@@ -325,6 +325,7 @@ int setsockopt (int sockfd, int level, int optname, const void *optval, socklen_
 {
   conditional_steal_call(setsockopt, sockfd, level, optname, optval, optlen);
 }
+
 int getsockopt (int sockfd, int level, int optname, void *optval, socklen_t *optlen)
 {
   conditional_steal_call(getsockopt, sockfd, level, optname, optval, optlen);
@@ -332,23 +333,23 @@ int getsockopt (int sockfd, int level, int optname, void *optval, socklen_t *opt
 
 int poll(struct pollfd *pfd, nfds_t npfd, int timeout)
 {
-  return pico_poll(pfd, npfd, timeout);
-}
-int ppoll(struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout_ts, const sigset_t *sigmask)
-{
-  return pico_ppoll(pfd, npfd, timeout_ts, sigmask);
+  conditional_steal_call(poll, pfd, npfd, timeout);
 }
 
-/*
+int ppoll(struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout_ts, const sigset_t *sigmask)
+{
+  conditional_steal_call(poll, pfd, npfd, timeout_ts, sigmask);
+}
+
 int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout)
 {
-  return pico_select(nfds, readfds, writefds, exceptfds, timeout);
+    conditional_steal_call(select, nfds, readfds, writefds, exceptfds, timeout);
 }
+
 int pselect(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout, const sigset_t *sigmask)
 {
-  return pico_pselect(nfds, readfds, writefds, exceptfds, timeout, sigmask);
+    conditional_steal_call(select, nfds, readfds, writefds, exceptfds, timeout, sigmask);
 }
-*/
 
 void *pico_tick_thread(void *arg) {
     struct pico_ip4 addr, netmask, gateway, zero = {};
