@@ -6,6 +6,7 @@ holders.
 
 Author: Maxime Vincent, Daniele Lacamera
 *********************************************************************/
+#include <stdint.h>
 #include "pico_defines.h"
 #include "pico_constants.h"
 #include "pico_config.h"
@@ -30,6 +31,7 @@ extern void   *picoLock;
 #include <netinet/in.h>
 #include <netdb.h>
 #include <fcntl.h>
+#include <sys/poll.h>
 static inline int sockopt_get_name(int posix_name)
 {
     switch (posix_name) {
@@ -191,7 +193,8 @@ struct timezone {
 # define O_NONBLOCK  0x4000
 #endif
 
-#ifndef POLLIN
+#ifndef _SYS_POLL_H
+
 #define POLLIN      0x001       /* There is data to read.  */
 #define POLLPRI     0x002       /* There is urgent data to read.  */
 #define POLLOUT     0x004       /* Writing now will not block.  */
@@ -208,7 +211,7 @@ struct timezone {
 #define POLLHUP     0x010       /* Hung up.  */
 #define POLLNVAL    0x020       /* Invalid polling request.  */
 
-typedef int nfds_t;
+typedef unsigned long int nfds_t;
 
 struct pollfd {
     int fd;
@@ -232,7 +235,6 @@ int pico_close(int sd);
 int pico_shutdown(int sd, int how);
 int pico_getsockname(int sd, struct sockaddr * local_addr, socklen_t *socklen);
 int pico_getpeername(int sd, struct sockaddr * remote_addr, socklen_t *socklen);
-int pico_bsd_check_events(int sd, uint16_t events, uint16_t *revents);
 
 #ifdef PICO_SUPPORT_DNS_CLIENT
 struct hostent *pico_gethostbyname(const char *name);

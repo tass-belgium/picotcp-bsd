@@ -18,6 +18,7 @@
 #include <sys/poll.h>
 #include <pthread.h>
 #include <sys/poll.h>
+#include <sys/select.h>
 
 
 static __thread int in_the_stack = 0;
@@ -117,98 +118,6 @@ static int (*host_ppoll) (struct pollfd *pfd, nfds_t npfd, const struct timespec
 static int (*host_select) (int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout);
 static int (*host_pselect) (int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout,
                             const sigset_t *sigmask);
-
-int pico_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout)
-{
-    printf("Called select\n");
-    return -1;
-
-}
-int pico_pselect(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout, const sigset_t *sigmask)
-{
-    printf("Called pselect\n");
-    return -1;
-}
-
-
-int pico_ppoll (struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout_ts, const sigset_t *sigmask)
-{
-    int ret = 0, err = 0;
-    int i, j = 0, k = 0;
-    uint64_t timer = 0;
-    //printf("ppoll called\n");
-  
-    if (in_the_stack)
-      return host_ppoll(pfd, npfd, timeout_ts, sigmask);
-    /* clear Revents */
-    for(i = 0; i < npfd; i++) {
-        pfd[i].revents = 0;
-    }
-    for(;;) {  
-        for (i = 0; i < npfd; i++) {
-            int pico_fd = get_pico_fd(pfd[i].fd);
-            if (pico_fd < 0) {
-                err = host_poll(&pfd[i], 1, 0);
-                if (err > 0)
-                    ret++;
-                if (err < 0)
-                    return -1;
-            } else {
-                uint16_t revents;
-                if (pico_bsd_check_events(pico_fd, pfd[i].events, &revents) != 0) {
-                    pfd[i].revents |= POLLHUP | POLLERR;
-                    return -1;
-                } else {
-                    if (revents & PICO_SOCK_EV_CONN) {
-                        pfd[i].revents |= POLLIN;
-                    }
-                    if (revents & PICO_SOCK_EV_RD) {
-                        pfd[i].revents |= POLLIN;
-                    }
-                    if (revents & PICO_SOCK_EV_WR) {
-                        pfd[i].revents |= POLLOUT;
-                    }
-                    if (revents & PICO_SOCK_EV_CLOSE) {
-                        pfd[i].revents |= POLLHUP;
-                    }
-                    if (revents & PICO_SOCK_EV_FIN) {
-                        pfd[i].revents |= POLLERR;
-                    }
-                }
-                pfd[i].revents &= (pfd[i].events | POLLHUP | POLLERR);
-                pfd[i].revents &= POLLIN | POLLOUT | POLLHUP | POLLERR;
-                if (pfd[i].revents > 0) {
-                    //printf("one socket unlocked\n");
-                    ret++;
-                }
-            }
-        }
-        if (ret > 0) {
-            //printf("-->returning %d\n", ret);
-            return ret;
-        }
-        usleep(1000);
-        timer++;
-    
-        if ((timeout_ts != NULL) && ((timer >  ((timeout_ts->tv_sec * 1000) + (timeout_ts->tv_nsec / 1000000)))))
-            return 0;
-    }
-    return -1; /* Oh, really? */
-}
-
-int pico_poll (struct pollfd *pfd, nfds_t npfd, int timeout)
-{
-    struct timespec ts;    
-    if (in_the_stack)
-        return host_poll(pfd, npfd, timeout);
-
-    if (timeout >= 0) {
-        ts.tv_sec  = timeout/1000;
-        ts.tv_nsec = (timeout % 1000) * 1000000;
-        return pico_ppoll(pfd, npfd, &ts, NULL);
-    }
-    return pico_ppoll(pfd, npfd, NULL, NULL);
-}
 
 int socket(int domain, int type, int protocol)
 {
@@ -333,22 +242,123 @@ int getsockopt (int sockfd, int level, int optname, void *optval, socklen_t *opt
 
 int poll(struct pollfd *pfd, nfds_t npfd, int timeout)
 {
-  conditional_steal_call(poll, pfd, npfd, timeout);
+   if(in_the_stack) { 
+    return host_poll(pfd, npfd, timeout); 
+   } else { 
+       int i, j = 0;
+       struct pollfd pico_pfd[npfd];
+       for (i = 0; i < npfd; i++) {
+            pico_pfd[j].fd = get_pico_fd(pfd[i].fd); 
+            if (pico_pfd[j].fd >= 0) {
+                j++;
+                pico_pfd[j].events = pfd[i].events;
+            }
+       } 
+       if (j > 0) {
+            int pico_retval = pico_poll(pico_pfd, j, timeout);
+            if (pico_retval < 0)
+                errno = pico_err;
+            return pico_retval;
+       } else {
+           errno = EINVAL;
+           return -1;
+       }
+   }
 }
+
 
 int ppoll(struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout_ts, const sigset_t *sigmask)
 {
-  conditional_steal_call(poll, pfd, npfd, timeout_ts, sigmask);
-}
-
-int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout)
-{
-    conditional_steal_call(select, nfds, readfds, writefds, exceptfds, timeout);
+   if(in_the_stack) { 
+    return host_ppoll(pfd, npfd, timeout_ts, sigmask); 
+   } else { 
+       int i, j = 0;
+       struct pollfd pico_pfd[npfd];
+       for (i = 0; i < npfd; i++) {
+            pico_pfd[j].fd = get_pico_fd(pfd[i].fd); 
+            if (pico_pfd[j].fd >= 0) {
+                j++;
+                pico_pfd[j].events = pfd[i].events;
+            }
+       } 
+       if (j > 0) {
+            int pico_retval = pico_ppoll(pico_pfd, j, timeout_ts, NULL);
+            if (pico_retval < 0)
+                errno = pico_err;
+            return pico_retval;
+       } else {
+           errno = EINVAL;
+           return -1;
+       }
+   }
 }
 
 int pselect(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout, const sigset_t *sigmask)
 {
-    conditional_steal_call(select, nfds, readfds, writefds, exceptfds, timeout, sigmask);
+   pico_fd_set rs, ws, es;
+   int pico_retval = -1;
+
+   PICO_FD_ZERO(&rs);
+   PICO_FD_ZERO(&ws);
+   PICO_FD_ZERO(&es);
+
+   if(in_the_stack) { 
+       return host_pselect(nfds, readfds, writefds, exceptfds, timeout, sigmask); 
+   } else { 
+       int i, max = -1;
+       for (i = 0; i < nfds; i++) {
+            int picofd = get_pico_fd(i);
+            if (picofd >= 0) {
+                if (FD_ISSET(i, readfds))
+                    PICO_FD_SET(picofd, &rs);
+                if (FD_ISSET(i, writefds))
+                    PICO_FD_SET(picofd, &ws);
+                if (FD_ISSET(i, exceptfds))
+                    PICO_FD_SET(picofd, &es);
+            }
+            if (picofd > max)
+                max = picofd;
+       }
+       if (max < 0) {
+           errno = EINVAL;
+           return -1;
+       }
+       max++;
+       pico_retval = pico_pselect(max, &rs, &ws, &es, timeout, NULL);
+       if (pico_retval < 0)
+           errno = pico_err;
+       else {
+            for(i = 0; i < nfds; i++) {
+                int picofd = get_pico_fd(i);
+                FD_CLR(i, readfds);
+                FD_CLR(i, writefds);
+                FD_CLR(i, exceptfds);
+                if (picofd >= 0) {
+                    if (FD_ISSET(picofd, &rs))
+                        FD_SET(i, readfds);
+                    if (FD_ISSET(picofd, &ws))
+                        FD_SET(i, writefds);
+                    if (FD_ISSET(picofd, &es))
+                        FD_SET(i, exceptfds);
+                }
+            }
+       }
+       return pico_retval;
+   }
+}
+
+int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout)
+{
+   if(in_the_stack) { 
+       return host_select(nfds, readfds, writefds, exceptfds, timeout); 
+   } else { 
+       if (timeout) {
+           const struct timespec ts = {timeout->tv_sec, timeout->tv_usec * 1000};
+           return pselect(nfds, readfds, writefds, exceptfds, &ts, NULL);
+       } else {
+           return pselect(nfds, readfds, writefds, exceptfds, NULL, NULL);
+       }
+   }
 }
 
 void *pico_tick_thread(void *arg) {

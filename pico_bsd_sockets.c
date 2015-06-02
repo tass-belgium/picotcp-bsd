@@ -807,18 +807,6 @@ static struct pico_bsd_endpoint *get_endpoint(int sd)
     return PicoSockets[sd];
 }
 
-int pico_bsd_check_events(int sd, uint16_t events, uint16_t *revents)
-{
-    struct pico_bsd_endpoint *ep = get_endpoint(sd);
-    if (!ep)
-        return -1;
-    if (ep->state == SOCK_CLOSED)
-        *revents = PICO_SOCK_EV_FIN | PICO_SOCK_EV_CLOSE;
-    else
-        *revents = ep->revents & events;
-    return 0;
-}
-
 /* wait for one of the selected events, return any of those that occurred */
 uint16_t pico_bsd_select(struct pico_bsd_endpoint *ep)
 {
