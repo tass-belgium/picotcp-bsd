@@ -1278,7 +1278,8 @@ char *pico_inet_ntoa(struct in_addr in)
 }
 
 
-int pico_select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_set *exceptfds, struct timeval *timeout)
+
+int pico_pselect(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout, const sigset_t *sigmask)
 {
     /* 
      * EV_READ:     sets the readfds
@@ -1291,6 +1292,7 @@ int pico_select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_s
 
     int i = 0;          /* socket fds */
     int nfds_out = 0;   /* amount of changed sockets */
+    (void) sigmask;
 
     bsd_dbg_select("===  IN: PICO SELECT === readfds[0]: 0x%x -- writefds[0]: 0x%x\n", readfds?(*(uint8_t *)readfds):0, writefds?(*(uint8_t *)writefds):0);
 
@@ -1348,7 +1350,7 @@ int pico_select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_s
             break;
 
         /* If not, wait for a semaphore signaling an event from the stack */
-        if (pico_signal_wait_timeout(global_signal, (timeout->tv_sec * 1000) + ((timeout->tv_usec) / 1000)) == -1)
+        if (pico_signal_wait_timeout(global_signal, (timeout->tv_sec * 1000) + ((timeout->tv_nsec) / 1000000)) == -1)
         {
             /* On timeout, break out of the loop */
             bsd_dbg_select("\t~~~ SELECT: TIMEOUT\n");
@@ -1372,3 +1374,71 @@ int pico_select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_s
     return nfds_out;
 }
 
+int pico_select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_set *exceptfds, struct timeval *timeout) 
+{
+    struct timespec ts;
+    if (timeout) {
+        ts.tv_sec = timeout->tv_sec;
+        ts.tv_nsec = timeout->tv_usec * 1000;
+        return pico_pselect(nfds, readfds, writefds, exceptfds, &ts, NULL);
+    } else
+        return pico_pselect(nfds, readfds, writefds, exceptfds, NULL, NULL); 
+}
+
+int pico_ppoll(struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout, const sigset_t *sigmask) {
+    int i;
+    int ret = 0;
+    (void) sigmask;
+
+    while (ret == 0) {
+        for (i = 0; i < npfd; i++) {
+            struct pico_bsd_endpoint *ep = get_endpoint(pfd[i].fd);
+            pfd[i].revents = 0u;
+
+            /* Always polled events */
+            if (!ep) {
+                pfd[i].revents |= POLLNVAL; 
+            }
+            if (!ep->in_use) {
+                pfd[i].revents |= POLLNVAL;
+            }
+            if (ep->events & (PICO_SOCK_EV_FIN | PICO_SOCK_EV_ERR)) {
+                pfd[i].revents |= POLLERR;
+                ret++;
+            }
+            if (ep->events & PICO_SOCK_EV_CLOSE)
+                pfd[i].revents |= POLLHUP;
+
+            /* Checking POLLIN */
+            if ((pfd[i].events & POLLIN)  && (ep->events & (PICO_SOCK_EV_RD | PICO_SOCK_EV_CONN))) {
+                pfd[i].revents |= POLLIN;
+                if (pfd[i].events & POLLRDNORM)
+                    pfd[i].revents |= POLLRDNORM;
+            }
+            /* Checking POLLOUT */
+            if ((pfd[i].events & POLLOUT) && (ep->events & (PICO_SOCK_EV_WR))) {
+                pfd[i].revents |= POLLOUT;
+                if (pfd[i].events & POLLWRNORM)
+                    pfd[i].revents |= POLLWRNORM;
+            }
+
+            if (pfd[i].revents != 0)
+                ret++;
+        } /* End for loop */
+        if ((ret == 0) && timeout && (pico_signal_wait_timeout(global_signal, (timeout->tv_sec * 1000) + ((timeout->tv_nsec) / 1000000)) == -1))
+                return 0; /* Timeout */
+    } /* End while loop */
+    return ret;
+}
+
+int pico_poll(struct pollfd *pfd, nfds_t npfd, int timeout)
+{
+    struct timespec ts = {0U, 0U};
+    if (timeout >= 0) {
+        ts.tv_sec = timeout / 1000;
+        ts.tv_nsec = (timeout % 1000) * 1000000;
+        return pico_ppoll(pfd, npfd, &ts, NULL);
+    } else {
+        return pico_ppoll(pfd, npfd, NULL, NULL);
+    }
+}

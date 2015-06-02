@@ -147,6 +147,8 @@ struct pico_fd_set_s {
 
 typedef struct pico_fd_set_s pico_fd_set;
 
+typedef void sigset_t;
+
 #  define	PICO_FD_SET(n, p)   ((p)->fds_bits[(n)/8] |=  (1u << ((n) % 8)))
 #  define	PICO_FD_CLR(n, p)   ((p)->fds_bits[(n)/8] &= ~(1u << ((n) % 8)))
 #  define	PICO_FD_ISSET(n, p) ((p)->fds_bits[(n)/8] &   (1u << ((n) % 8)))
@@ -161,6 +163,11 @@ typedef pico_time time_t;
 struct timeval {
     time_t tv_sec;
     time_t tv_usec;
+};
+
+struct timespec {
+    long tv_sec;
+    long tv_nsec;
 };
 
 struct timezone {
@@ -184,6 +191,31 @@ struct timezone {
 # define O_NONBLOCK  0x4000
 #endif
 
+#ifndef POLLIN
+#define POLLIN      0x001       /* There is data to read.  */
+#define POLLPRI     0x002       /* There is urgent data to read.  */
+#define POLLOUT     0x004       /* Writing now will not block.  */
+# define POLLRDNORM 0x040       /* Normal data may be read.  */
+# define POLLRDBAND 0x080       /* Priority data may be read.  */
+# define POLLWRNORM 0x100       /* Writing now will not block.  */
+# define POLLWRBAND 0x200       /* Priority data may be written.  */
+
+# define POLLMSG    0x400
+# define POLLREMOVE 0x1000
+# define POLLRDHUP  0x2000
+
+#define POLLERR     0x008       /* Error condition.  */
+#define POLLHUP     0x010       /* Hung up.  */
+#define POLLNVAL    0x020       /* Invalid polling request.  */
+
+typedef int nfds_t;
+
+struct pollfd {
+    int fd;
+    uint16_t events;
+    uint16_t revents;
+};
+#endif
 
 int pico_newsocket(int domain, int type, int proto);
 int pico_bind(int sd, struct sockaddr * local_addr, socklen_t socklen);
@@ -217,13 +249,12 @@ int pico_setsockopt          (int sockfd, int level, int optname, const void *op
 int pico_getsockopt          (int sockfd, int level, int optname, void *optval, socklen_t *optlen);
 
 int pico_select              (int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_set *exceptfds, struct timeval *timeout);
-
-#ifdef VERY_COOL
-int pico_poll                (struct pollfd *pfd, nfds_t npfd, int timeout);
-int pico_ppoll               (struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout_ts, const sigset_t *sigmask);
 int pico_pselect             (int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout, 
                                     const sigset_t *sigmask);
-#endif
+
+int pico_poll                (struct pollfd *pfd, nfds_t npfd, int timeout);
+int pico_ppoll               (struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout_ts, const sigset_t *sigmask);
+
 
 #ifdef PICO_SUPPORT_SNTP_CLIENT
 int pico_gettimeofday(struct timeval *tv, struct timezone *tz);
