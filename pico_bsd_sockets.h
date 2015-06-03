@@ -167,10 +167,12 @@ struct timeval {
     time_t tv_usec;
 };
 
+#ifndef __timespec_defined
 struct timespec {
     long tv_sec;
     long tv_nsec;
 };
+#endif
 
 struct timezone {
     int tz_minuteswest;     /* minutes west of Greenwich */
