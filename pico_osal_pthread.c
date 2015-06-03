@@ -44,10 +44,22 @@ void pico_signal_deinit(void * signal)
 {
     sem_destroy((sem_t *) signal);
 }
+
 void pico_signal_wait(void * signal)
 {
     sem_wait((sem_t *) signal);
 }
+
+void pico_signal_wait_timeout(void * signal, int timeout)
+{
+    if (timeout < 0) {
+        return sem_wait((sem_t *) signal);
+    } else {
+        struct timespec ts = { timeout / 1000, (timeout % 1000) * 1000000 };
+        return sem_timedwait((sem_t *) signal, &ts);
+    }
+}
+
 void pico_signal_send(void * signal)
 {
     sem_post((sem_t *) signal);

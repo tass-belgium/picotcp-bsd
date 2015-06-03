@@ -856,7 +856,9 @@ static void pico_event_clear(struct pico_bsd_endpoint *ep, uint16_t events)
 /* this is called from pico_stack_tick, so picoLock is already locked */
 static void pico_socket_event(uint16_t ev, struct pico_socket *s)
 {
-    struct pico_bsd_endpoint * ep = (struct pico_bsd_endpoint *)s->priv;
+    struct pico_bsd_endpoint * ep = (struct pico_bsd_endpoint *)(s->priv);
+    if (!s)
+        return;
     if(!ep || !ep->s || !ep->mutex_lock || !ep->signal )
     {
         if(ev & (PICO_SOCK_EV_CLOSE | PICO_SOCK_EV_FIN) )
