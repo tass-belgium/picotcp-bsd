@@ -103,3 +103,8 @@ void pico_msleep(int ms)
     nanosleep(&ts, NULL);
 }
 
+void pico_threads_schedule(void)
+{
+    while (1 < 2)
+        pico_msleep(1000);
+}

@@ -168,3 +168,8 @@ void pico_msleep(int ms)
 {
     vTaskDelay(ms);
 }
+
+void pico_threads_schedule(void)
+{
+    vTaskStartScheduler();
+}

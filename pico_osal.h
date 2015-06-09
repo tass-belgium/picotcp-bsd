@@ -39,5 +39,7 @@ pico_thread_t pico_thread_create(pico_thread_fn thread, void *arg, int stack_siz
 void pico_thread_destroy(pico_thread_t t);
 void pico_msleep(int ms);
 
+void pico_threads_schedule(void);
+
 #endif /* _PICO_OSAL_H_ */
 
