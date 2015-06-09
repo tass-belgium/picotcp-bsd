@@ -35,11 +35,12 @@ void * pico_signal_init(void)
     sem_t *sem = pico_zalloc(sizeof(pthread_mutex_t));
     if (!sem)
         return NULL;
-    if (sem_init(sem, 0, 1) == 0)
+    if (sem_init(sem, 0, 0) == 0)
         return sem;
     pico_free(sem);
     return NULL; 
 }
+
 void pico_signal_deinit(void * signal)
 {
     sem_destroy((sem_t *) signal);
