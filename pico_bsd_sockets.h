@@ -148,6 +148,7 @@ struct pico_fd_set_s {
 };
 
 typedef struct pico_fd_set_s pico_fd_set;
+#define fd_set pico_fd_set
 
 typedef void sigset_t;
 

@@ -148,16 +148,20 @@ void pico_mutex_unlock_ISR(void * mutex)
 static char thread_name[3] = "T";
 static int thread_n = 0;
 
-void pico_thread_create(pico_thread t, pico_thread_fn thread, void *arg, int stack_size, int prio)
+pico_thread_t pico_thread_create(pico_thread_fn thread, void *arg, int stack_size, int prio)
 {
+    pico_thread_t t = PICO_ZALLOC(sizeof(TaskHandle_t));
+    if (!t)
+        return NULL;
     thread_name[2] = (thread_n++) % 10;
     thread_name[3] = 0; 
-    xTaskCreate((TaskFunction_t)thread, thread_name, stack_size, arg, prio, (TaskHandle_t *)t);
+    xTaskCreate((TaskFunction_t)thread, thread_name, stack_size, arg, prio, t);
 }
 
-void pico_thread_destroy(pico_thread t)
+void pico_thread_destroy(pico_thread_t t)
 {
-    xTaskDelete((TaskHandle_t)t);
+    vTaskDelete((TaskHandle_t)t);
+    PICO_FREE(t);
 }
 
 void pico_msleep(int ms)

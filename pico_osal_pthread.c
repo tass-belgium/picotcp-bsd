@@ -80,17 +80,21 @@ void pico_signal_send(void * signal)
     sem_post((sem_t *) signal);
 }
 
-void pico_thread_create(pico_thread t, pico_thread_fn thread, void *arg, int stack_size, int prio)
+pico_thread_t pico_thread_create(pico_thread_fn thread, void *arg, int stack_size, int prio)
 {
+    pico_thread_t t = PICO_ZALLOC(sizeof(pthread_t));
+    if (!t)
+        return NULL;
     (void)stack_size;
     (void)prio;
-    pthread_create(t, NULL, thread, arg);
+    pthread_create((pthread_t *)t, NULL, thread, arg);
     pthread_detach(*((pthread_t *)t));
 }
 
-void pico_thread_destroy(pico_thread t)
+void pico_thread_destroy(pico_thread_t t)
 {
     pthread_cancel(*((pthread_t *)t));
+    PICO_FREE(t);
 }
 
 void pico_msleep(int ms)
