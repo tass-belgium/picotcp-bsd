@@ -145,15 +145,22 @@ void pico_mutex_unlock_ISR(void * mutex)
 /* ============= */
 /* == THREADS == */
 /* ============= */
-/* MVI TODO: Not implemented yet, threads are now created within the app .. */
-int pico_thread_create()
+static char thread_name[3] = "T";
+static int thread_n = 0;
+
+void pico_thread_create(pico_thread t, pico_thread_fn thread, void *arg, int stack_size, int prio)
 {
-    return 0;
-};
+    thread_name[2] = (thread_n++) % 10;
+    thread_name[3] = 0; 
+    xTaskCreate((TaskFunction_t)thread, thread_name, stack_size, arg, prio, (TaskHandle_t *)t);
+}
 
-
-int pico_thread_somethingelse()
+void pico_thread_destroy(pico_thread t)
 {
-    return 0;
-};
+    xTaskDelete((TaskHandle_t)t);
+}
 
+void pico_msleep(int ms)
+{
+    vTaskDelay(ms);
+}
