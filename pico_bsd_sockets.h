@@ -74,7 +74,6 @@ typedef int socklen_t;
 #define SO_SNDBUF    (PICO_SOCKET_OPT_SNDBUF)
 #define SO_ERROR        (4103)
 #define SO_REUSEADDR    (2)
-#define SO_REUSEPORT    (15)
 #define sockopt_get_name(x) ((x))
 
 #define INET_ADDRSTRLEN    (16)
@@ -183,6 +182,9 @@ struct timezone {
 #endif
 #endif /* STDSOCKET */
 
+#ifndef SO_REUSEPORT
+# define SO_REUSEPORT    (15)
+#endif
 
 #ifndef F_GETFL
 # define F_GETFL 3
