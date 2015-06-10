@@ -6,6 +6,10 @@ holders.
 
 Author: Maxime Vincent, Daniele Lacamera
 *********************************************************************/
+#ifndef PICO_BSD_SOCKETS_H_
+#define PICO_BSD_SOCKETS_H_
+
+#include <stdint.h>
 #include "pico_defines.h"
 #include "pico_constants.h"
 #include "pico_config.h"
@@ -17,174 +21,211 @@ Author: Maxime Vincent, Daniele Lacamera
 #include "pico_dns_client.h"
 #include "pico_socket.h"
 
-#ifndef PICO_BSD_SOCKETS_H_
-#define PICO_BSD_SOCKETS_H_
 #define SOCKSIZE  16
 #define SOCKSIZE6 28
 struct pico_bsd_endpoint;
 extern void   *picoLock;
 
 #if defined STDSOCKET || defined __socklen_t_defined
-#include "sys/types.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <fcntl.h>
-
-static inline int sockopt_get_name(int posix_name)
-{
-    switch (posix_name) {
-        case IP_MULTICAST_LOOP: return PICO_IP_MULTICAST_LOOP;
-        case IP_MULTICAST_TTL: return PICO_IP_MULTICAST_TTL;
-        case IP_MULTICAST_IF: return PICO_IP_MULTICAST_IF;
-        case IP_ADD_MEMBERSHIP: return PICO_IP_ADD_MEMBERSHIP;
-        case IP_DROP_MEMBERSHIP: return PICO_IP_DROP_MEMBERSHIP;
-        case SO_RCVBUF   : return PICO_SOCKET_OPT_RCVBUF;
-        case SO_SNDBUF   : return PICO_SOCKET_OPT_SNDBUF;
+    #include "sys/types.h"
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+    #include <netdb.h>
+    #include <fcntl.h>
+    #include <sys/poll.h>
+    
+    static inline int sockopt_get_name(int posix_name)
+    {
+        switch (posix_name) {
+            case IP_MULTICAST_LOOP: return PICO_IP_MULTICAST_LOOP;
+            case IP_MULTICAST_TTL: return PICO_IP_MULTICAST_TTL;
+            case IP_MULTICAST_IF: return PICO_IP_MULTICAST_IF;
+            case IP_ADD_MEMBERSHIP: return PICO_IP_ADD_MEMBERSHIP;
+            case IP_DROP_MEMBERSHIP: return PICO_IP_DROP_MEMBERSHIP;
+            case SO_RCVBUF   : return PICO_SOCKET_OPT_RCVBUF;
+            case SO_SNDBUF   : return PICO_SOCKET_OPT_SNDBUF;
+        }
+        return -1;
     }
-    return -1;
-}
-
-
-#define pico_fd_set     fd_set
-#define	PICO_FD_SET     FD_SET
-#define	PICO_FD_CLR     FD_CLR
-#define	PICO_FD_ISSET   FD_ISSET
-#define	PICO_FD_ZERO    FD_ZERO
-
-#undef  fcntl
-#define fcntl           pico_fcntl
+    
+    #define pico_fd_set     fd_set
+    #define PICO_FD_SET     FD_SET
+    #define PICO_FD_CLR     FD_CLR
+    #define PICO_FD_ISSET   FD_ISSET
+    #define PICO_FD_ZERO    FD_ZERO
+    
+    #undef  fcntl
+    #define fcntl           pico_fcntl
 
 #else
-typedef int socklen_t;
-#define AF_INET     (PICO_PROTO_IPV4)
-#define AF_INET6    (PICO_PROTO_IPV6)
-#define SOCK_STREAM  (PICO_PROTO_TCP)
-#define SOCK_DGRAM   (PICO_PROTO_UDP)
 
-#define SOL_SOCKET (0x80)
+    typedef int socklen_t;
+    #define AF_INET     (PICO_PROTO_IPV4)
+    #define AF_INET6    (PICO_PROTO_IPV6)
+    #define SOCK_STREAM  (PICO_PROTO_TCP)
+    #define SOCK_DGRAM   (PICO_PROTO_UDP)
+    
+    #define SOL_SOCKET (0x80)
+    
+    #define IP_MULTICAST_LOOP (PICO_IP_MULTICAST_LOOP)
+    #define IP_MULTICAST_TTL (PICO_IP_MULTICAST_TTL)
+    #define IP_MULTICAST_IF (PICO_IP_MULTICAST_IF)
+    #define IP_ADD_MEMBERSHIP (PICO_IP_ADD_MEMBERSHIP)
+    #define IP_DROP_MEMBERSHIP (PICO_IP_DROP_MEMBERSHIP)
+    #define SO_RCVBUF    (PICO_SOCKET_OPT_RCVBUF)
+    #define SO_SNDBUF    (PICO_SOCKET_OPT_SNDBUF)
+    #define SO_ERROR        (4103)
+    #define SO_REUSEADDR    (2)
+    #define sockopt_get_name(x) ((x))
+    
+    #define INET_ADDRSTRLEN    (16)
+    #define INET6_ADDRSTRLEN   (46)
+    
+    struct sockaddr {
+        uint16_t sa_family;
+    }; 
+    
+    struct in_addr {
+        uint32_t s_addr;
+    };
+    
+    #define INADDR_ANY ((uint32_t)0U)
+    
+    struct in6_addr {
+        uint8_t s6_addr[16];
+    };
+    
+    struct __attribute__((packed)) sockaddr_in {
+        uint16_t sin_family;
+        uint16_t sin_port;
+        struct in_addr sin_addr;
+        uint8_t _pad[SOCKSIZE - 8];         
+    };
+    
+    
+    struct __attribute__((packed)) sockaddr_in6 {
+        uint16_t sin6_family;
+        uint16_t sin6_port;
+        uint32_t sin6_flowinfo;
+        struct in6_addr sin6_addr;
+        uint32_t sin6_scope_id;
+    };
+    
+    struct __attribute__((packed)) sockaddr_storage {
+        uint16_t ss_family;
+        uint8_t  _pad[(SOCKSIZE6 - sizeof(uint16_t))];
+    };
+    
+    /* getaddrinfo */
+    struct addrinfo {
+        int              ai_flags;
+        int              ai_family;
+        int              ai_socktype;
+        int              ai_protocol;
+        socklen_t        ai_addrlen;
+        struct sockaddr *ai_addr;
+        char            *ai_canonname;
+        struct addrinfo *ai_next;
+    };
+    
+    
+    /* hostent */
+    struct hostent {
+        char  *h_name;            /* official name of host */
+        char **h_aliases;         /* alias list */
+        int    h_addrtype;        /* host address type */
+        int    h_length;          /* length of address */
+        char **h_addr_list;       /* list of addresses */
+    };
+    #define h_addr h_addr_list[0] /* for backward compatibility */
+    
+    /* fd_set */
+    #ifndef FD_SETSIZE
+        #define FD_SETSIZE  64 /* 64 files max, 1 bit per file -> 64bits = 8 bytes */
+    #endif
+    
+    struct pico_fd_set_s {
+        uint8_t fds_bits[FD_SETSIZE/8];
+    };
+    
+    typedef struct pico_fd_set_s pico_fd_set;
+    #define fd_set pico_fd_set
+    
+    typedef void sigset_t;
+    
+    #define   PICO_FD_SET(n, p)   ((p)->fds_bits[(n)/8] |=  (1u << ((n) % 8)))
+    #define   PICO_FD_CLR(n, p)   ((p)->fds_bits[(n)/8] &= ~(1u << ((n) % 8)))
+    #define   PICO_FD_ISSET(n, p) ((p)->fds_bits[(n)/8] &   (1u << ((n) % 8)))
+    #define   PICO_FD_ZERO(p)     do{memset((p)->fds_bits, 0, sizeof(struct pico_fd_set_s));}while(0)
+    
+    /* Not socket related */
+    #ifndef __time_t_defined
+        typedef pico_time time_t;
+        #define __time_t_defined
+    #endif
 
-#define IP_MULTICAST_LOOP (PICO_IP_MULTICAST_LOOP)
-#define IP_MULTICAST_TTL (PICO_IP_MULTICAST_TTL)
-#define IP_MULTICAST_IF (PICO_IP_MULTICAST_IF)
-#define IP_ADD_MEMBERSHIP (PICO_IP_ADD_MEMBERSHIP)
-#define IP_DROP_MEMBERSHIP (PICO_IP_DROP_MEMBERSHIP)
-#define SO_RCVBUF    (PICO_SOCKET_OPT_RCVBUF)
-#define SO_SNDBUF    (PICO_SOCKET_OPT_SNDBUF)
-#define SO_ERROR        (4103)
-#define SO_REUSEADDR    (2)
-#define SO_REUSEPORT    (15)
-#define sockopt_get_name(x) ((x))
-
-#define INET_ADDRSTRLEN    (16)
-#define INET6_ADDRSTRLEN   (46)
-
-struct sockaddr {
-    uint16_t sa_family;
-}; 
-
-struct in_addr {
-    uint32_t s_addr;
-};
-
-#define INADDR_ANY ((uint32_t)0U)
-
-struct in6_addr {
-    uint8_t s6_addr[16];
-};
-
-struct __attribute__((packed)) sockaddr_in {
-    uint16_t sin_family;
-    uint16_t sin_port;
-    struct in_addr sin_addr;
-    uint8_t _pad[SOCKSIZE - 8];         
-};
-
-
-struct __attribute__((packed)) sockaddr_in6 {
-    uint16_t sin6_family;
-    uint16_t sin6_port;
-    uint32_t sin6_flowinfo;
-    struct in6_addr sin6_addr;
-    uint32_t sin6_scope_id;
-};
-
-struct __attribute__((packed)) sockaddr_storage {
-    uint16_t ss_family;
-    uint8_t  _pad[(SOCKSIZE6 - sizeof(uint16_t))];
-};
-
-/* getaddrinfo */
-struct addrinfo {
-    int              ai_flags;
-    int              ai_family;
-    int              ai_socktype;
-    int              ai_protocol;
-    socklen_t        ai_addrlen;
-    struct sockaddr *ai_addr;
-    char            *ai_canonname;
-    struct addrinfo *ai_next;
-};
-
-
-/* hostent */
-struct hostent {
-    char  *h_name;            /* official name of host */
-    char **h_aliases;         /* alias list */
-    int    h_addrtype;        /* host address type */
-    int    h_length;          /* length of address */
-    char **h_addr_list;       /* list of addresses */
-};
-#define h_addr h_addr_list[0] /* for backward compatibility */
-
-/* fd_set */
-#  ifndef	FD_SETSIZE
-#	define	FD_SETSIZE	64 /* 64 files max, 1 bit per file -> 64bits = 8 bytes */
-#  endif
-
-struct pico_fd_set_s {
-	uint8_t	fds_bits[FD_SETSIZE/8];
-};
-
-typedef struct pico_fd_set_s pico_fd_set;
-
-#  define	PICO_FD_SET(n, p)   ((p)->fds_bits[(n)/8] |=  (1u << ((n) % 8)))
-#  define	PICO_FD_CLR(n, p)   ((p)->fds_bits[(n)/8] &= ~(1u << ((n) % 8)))
-#  define	PICO_FD_ISSET(n, p) ((p)->fds_bits[(n)/8] &   (1u << ((n) % 8)))
-#  define   PICO_FD_ZERO(p)     do{memset((p)->fds_bits, 0, sizeof(struct pico_fd_set_s));}while(0)
-
-/* Not socket related */
-#ifndef __time_t_defined
-typedef pico_time time_t;
-#define __time_t_defined
-#endif
-#if !defined _TIME_H && !defined _TIMEVAL_DEFINED && !defined _STRUCT_TIMEVAL
-struct timeval {
-    time_t tv_sec;
-    time_t tv_usec;
-};
-
-struct timezone {
-    int tz_minuteswest;     /* minutes west of Greenwich */
-    int tz_dsttime;         /* type of DST correction */
-};
-#define _TIMEVAL_DEFINED
-#endif
+    #if !defined _TIME_H && !defined _TIMEVAL_DEFINED && !defined _STRUCT_TIMEVAL
+        struct timeval {
+            time_t tv_sec;
+            time_t tv_usec;
+        };
+        
+        #ifndef __timespec_defined
+            struct timespec {
+                long tv_sec;
+                long tv_nsec;
+            };
+        #endif
+        
+        struct timezone {
+            int tz_minuteswest;     /* minutes west of Greenwich */
+            int tz_dsttime;         /* type of DST correction */
+        };
+        #define _TIMEVAL_DEFINED
+    #endif
 #endif /* STDSOCKET */
 
+#ifndef SO_REUSEPORT
+    #define SO_REUSEPORT    (15)
+#endif
 
 #ifndef F_GETFL
-# define F_GETFL 3
+    #define F_GETFL 3
 #endif
 
 #ifndef F_SETFL
-# define F_SETFL 4
+    #define F_SETFL 4
 #endif
 
 #ifndef O_NONBLOCK
-# define O_NONBLOCK  0x4000
+    #define O_NONBLOCK  0x4000
 #endif
 
+#ifndef _SYS_POLL_H
+    #define POLLIN      0x001       /* There is data to read.  */
+    #define POLLPRI     0x002       /* There is urgent data to read.  */
+    #define POLLOUT     0x004       /* Writing now will not block.  */
+    #define POLLRDNORM 0x040       /* Normal data may be read.  */
+    #define POLLRDBAND 0x080       /* Priority data may be read.  */
+    #define POLLWRNORM 0x100       /* Writing now will not block.  */
+    #define POLLWRBAND 0x200       /* Priority data may be written.  */
+    
+    #define POLLMSG    0x400
+    #define POLLREMOVE 0x1000
+    #define POLLRDHUP  0x2000
+    
+    #define POLLERR     0x008       /* Error condition.  */
+    #define POLLHUP     0x010       /* Hung up.  */
+    #define POLLNVAL    0x020       /* Invalid polling request.  */
+    
+    typedef unsigned long int nfds_t;
+    
+    struct pollfd {
+        int fd;
+        uint16_t events;
+        uint16_t revents;
+    };
+#endif
 
 int pico_newsocket(int domain, int type, int proto);
 int pico_bind(int sd, struct sockaddr * local_addr, socklen_t socklen);
@@ -205,32 +246,31 @@ int pico_bsd_check_events(int sd, uint16_t events, uint16_t *revents);
 int pico_fcntl(int sd, int cmd, int arg);
 
 #ifdef PICO_SUPPORT_DNS_CLIENT
-struct hostent *pico_gethostbyname(const char *name);
-
-/* getaddrinfo */
-int pico_getaddrinfo(const char *node, const char *service,
-                       const struct addrinfo *hints,
-                       struct addrinfo **res);
-
-void pico_freeaddrinfo(struct addrinfo *res);
+    struct hostent *pico_gethostbyname(const char *name);
+    
+    /* getaddrinfo */
+    int pico_getaddrinfo(const char *node, const char *service,
+                           const struct addrinfo *hints,
+                           struct addrinfo **res);
+    
+    void pico_freeaddrinfo(struct addrinfo *res);
 #endif
 
 int pico_setsockopt          (int sockfd, int level, int optname, const void *optval, socklen_t optlen); 
 int pico_getsockopt          (int sockfd, int level, int optname, void *optval, socklen_t *optlen);
 
 int pico_select              (int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_set *exceptfds, struct timeval *timeout);
-
-#ifdef VERY_COOL
-int pico_poll                (struct pollfd *pfd, nfds_t npfd, int timeout);
-int pico_ppoll               (struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout_ts, const sigset_t *sigmask);
 int pico_pselect             (int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout, 
                                     const sigset_t *sigmask);
-#endif
+
+int pico_poll                (struct pollfd *pfd, nfds_t npfd, int timeout);
+int pico_ppoll               (struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout_ts, const sigset_t *sigmask);
+
 
 #ifdef PICO_SUPPORT_SNTP_CLIENT
-int pico_gettimeofday(struct timeval *tv, struct timezone *tz);
-long XTIME(void);
-#define XGMTIME gmtime
+    int pico_gettimeofday(struct timeval *tv, struct timezone *tz);
+    long XTIME(void);
+    #define XGMTIME gmtime
 #endif
 
 /* arpa/inet.h */
@@ -244,34 +284,37 @@ void                         pico_bsd_stack_tick(void);
 uint16_t                     pico_bsd_select(struct pico_bsd_endpoint *ep);
 
 #ifdef REPLACE_STDCALLS
-#  define socket pico_newsocket
-#  define bind pico_bind
-#  define listen pico_listen
-#  define connect pico_connect
-#  define accept pico_accept
-#  define sendto pico_sendto
-#  define recvfrom pico_recvfrom
-#  define write pico_write
-#  define read pico_read
-#  define send pico_send
-#  define recv pico_recv
-#  define close pico_close
-#  define shutdown pico_shutdown
-#  define getsockname pico_getsockname
-#  define getpeername pico_getpeername
-#  define setsockopt pico_setsockopt
-#  define getsockopt pico_getsockopt
-#  define gettimeofday pico_gettimeofday
-#  define gethostbyname pico_gethostbyname
-#  define getaddrinfo pico_getaddrinfo
-#  define freeaddrinfo pico_freeaddrinfo
-#  define htons short_be
-#  define htonl long_be
-#  define ntohs short_be
-#  define ntohl long_be
-#  define inet_ntoa pico_inet_ntoa
-#  define inet_ntop pico_inet_ntop
-#  define select pico_select
+    #define socket          pico_newsocket
+    #define bind            pico_bind
+    #define listen          pico_listen
+    #define connect         pico_connect
+    #define accept          pico_accept
+    #define sendto          pico_sendto
+    #define recvfrom        pico_recvfrom
+    #define write           pico_write
+    #define read            pico_read
+    #define send            pico_send
+    #define recv            pico_recv
+    #define close           pico_close
+    #define shutdown        pico_shutdown
+    #define getsockname     pico_getsockname
+    #define getpeername     pico_getpeername
+    #define setsockopt      pico_setsockopt
+    #define getsockopt      pico_getsockopt
+    #define gettimeofday    pico_gettimeofday
+    #define gethostbyname   pico_gethostbyname
+    #define getaddrinfo     pico_getaddrinfo
+    #define freeaddrinfo    pico_freeaddrinfo
+    #define htons           short_be
+    #define htonl           long_be
+    #define ntohs           short_be
+    #define ntohl           long_be
+    #define inet_ntoa       pico_inet_ntoa
+    #define inet_ntop       pico_inet_ntop
+    #define select          pico_select
+    #define pselect         pico_pselect
+    #define poll            pico_poll
+    #define ppoll           pico_ppoll
 #endif
 
 #endif /* PICO_BSD_SOCKETS_H_ */
