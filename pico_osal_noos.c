@@ -143,15 +143,23 @@ void pico_signal_send_ISR(void * signal)
 /* ============= */
 /* == THREADS == */
 /* ============= */
-/* MVI TODO: Not implemented yet, threads are now created within the app .. */
-int pico_thread_create()
+
+pico_thread_t pico_thread_create(pico_thread_fn thread, void *arg, int stack_size, int prio)
 {
-    return 0;
-};
+    (void)thread;
+    (void)arg;
+    (void)stack_size;
+    (void)prio;
+    return NULL;
+}
 
-
-int pico_thread_destroy()
+void pico_thread_destroy(pico_thread_t t)
 {
-    return 0;
-};
+    return;
+}
 
+void pico_msleep(int ms)
+{
+    pico_time now = PICO_TIME_MS();
+    while ((pico_time)(now + ms) < PICO_TIME_MS());
+}

@@ -30,6 +30,7 @@ extern void   *picoLock;
 #include <netinet/in.h>
 #include <netdb.h>
 #include <fcntl.h>
+
 static inline int sockopt_get_name(int posix_name)
 {
     switch (posix_name) {
@@ -201,6 +202,7 @@ int pico_shutdown(int sd, int how);
 int pico_getsockname(int sd, struct sockaddr * local_addr, socklen_t *socklen);
 int pico_getpeername(int sd, struct sockaddr * remote_addr, socklen_t *socklen);
 int pico_bsd_check_events(int sd, uint16_t events, uint16_t *revents);
+int pico_fcntl(int sd, int cmd, int arg);
 
 #ifdef PICO_SUPPORT_DNS_CLIENT
 struct hostent *pico_gethostbyname(const char *name);
