@@ -545,7 +545,14 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
         /* pico_socket_recvfrom failed */
         if (retval < 0) {
             ep->error = pico_err;
-            return 0; /* socket error or closed */
+            if (pico_err == PICO_ERR_ESHUTDOWN) /* If no messages are available to be received and the peer has performed an orderly shutdown, recvfrom() shall return 0. */
+            {
+                return 0;
+            }
+            else /* Otherwise, the function shall return −1 and set errno to indicate the error. */
+            {
+                return -1;
+            }
         }
 
         /* If received 0 bytes, return -1 or amount of bytes received */
