@@ -23,8 +23,10 @@ Author: Maxime Vincent, Daniele Lacamera
 
 #define SOCKSIZE  16
 #define SOCKSIZE6 28
+
 struct pico_bsd_endpoint;
 extern void   *picoLock;
+extern void   *pico_signal_tick;
 
 #if defined STDSOCKET || defined __socklen_t_defined
     #include "sys/types.h"
@@ -277,43 +279,10 @@ const char *pico_inet_ntop   (int af, const void *src, char *dst, socklen_t size
 char       *pico_inet_ntoa   (struct in_addr in);
 
 /* Non-POSIX */
-void                         pico_bsd_init(void);
-void                         pico_bsd_deinit(void);
-void                         pico_bsd_stack_tick(void);
-uint16_t                     pico_bsd_select(struct pico_bsd_endpoint *ep);
-
-#ifdef REPLACE_STDCALLS
-    #define socket          pico_newsocket
-    #define bind            pico_bind
-    #define listen          pico_listen
-    #define connect         pico_connect
-    #define accept          pico_accept
-    #define sendto          pico_sendto
-    #define recvfrom        pico_recvfrom
-    #define write           pico_write
-    #define read            pico_read
-    #define send            pico_send
-    #define recv            pico_recv
-    #define close           pico_close
-    #define shutdown        pico_shutdown
-    #define getsockname     pico_getsockname
-    #define getpeername     pico_getpeername
-    #define setsockopt      pico_setsockopt
-    #define getsockopt      pico_getsockopt
-    #define gettimeofday    pico_gettimeofday
-    #define gethostbyname   pico_gethostbyname
-    #define getaddrinfo     pico_getaddrinfo
-    #define freeaddrinfo    pico_freeaddrinfo
-    #define htons           short_be
-    #define htonl           long_be
-    #define ntohs           short_be
-    #define ntohl           long_be
-    #define inet_ntoa       pico_inet_ntoa
-    #define inet_ntop       pico_inet_ntop
-    #define select          pico_select
-    #define pselect         pico_pselect
-    #define poll            pico_poll
-    #define ppoll           pico_ppoll
-#endif
+void                        pico_bsd_init(void);
+void                        pico_bsd_deinit(void);
+void                        pico_bsd_stack_tick(void);
+void                        pico_bsd_stack_tick_timeout(int timeout_ms);
+uint16_t                    pico_bsd_select(struct pico_bsd_endpoint *ep);
 
 #endif /* PICO_BSD_SOCKETS_H_ */

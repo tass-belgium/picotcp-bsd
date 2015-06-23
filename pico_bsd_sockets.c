@@ -27,7 +27,9 @@ Author: Maxime Vincent, Daniele Lacamera
 #define bsd_dbg_select(...)         do {} while(0)
 
 /* Global signal sent on any event (for select) */
-void * global_signal;
+void * picoLock             = NULL; /* pico stack lock */
+void * pico_signal_select   = NULL; /* pico global signal for select */
+void * pico_signal_tick     = NULL; /* pico tick signal, e.g. coming from a driver ISR */
 
 struct pico_bsd_endpoint {
   struct   pico_socket *s;
@@ -72,15 +74,14 @@ static void pico_event_clear(struct pico_bsd_endpoint *ep, uint16_t events);
 static uint16_t pico_bsd_wait(struct pico_bsd_endpoint * ep, int read, int write, int close);
 static void pico_socket_event(uint16_t ev, struct pico_socket *s);
 
-/* pico stack lock */
-void * picoLock = NULL;
 
 /************************/
 /* Public API functions */
 /************************/
 void pico_bsd_init(void)
 {
-    global_signal = pico_signal_init();
+    pico_signal_select = pico_signal_init();
+    pico_signal_tick = pico_signal_init();
     picoLock = pico_mutex_init();
 }
 
@@ -89,12 +90,20 @@ void pico_bsd_deinit(void)
     pico_mutex_deinit(picoLock);
 }
 
+/* just ticks the stack twice */
 void pico_bsd_stack_tick(void)
 {
     pico_mutex_lock(picoLock);
     pico_stack_tick();
     pico_stack_tick();
     pico_mutex_unlock(picoLock);
+}
+
+/* ticks the stack, but wait for a signal with a timeout (e.g. from the driver interrupt) */
+void pico_bsd_stack_tick_timeout(int timeout_ms)
+{
+    pico_signal_wait_timeout(pico_signal_tick, timeout_ms);
+    pico_bsd_stack_tick();
 }
 
 /** Declarations of helper functions **/
@@ -870,7 +879,7 @@ static void pico_socket_event(uint16_t ev, struct pico_socket *s)
     {
         if(ev & (PICO_SOCK_EV_CLOSE | PICO_SOCK_EV_FIN) )
         {
-            pico_signal_send(global_signal); /* Signal this event globally (e.g. for select()) */
+            pico_signal_send(pico_signal_select); /* Signal this event globally (e.g. for select()) */
             pico_socket_close(s);
         }
         /* endpoint not initialized yet! */
@@ -910,7 +919,7 @@ static void pico_socket_event(uint16_t ev, struct pico_socket *s)
         ep->state = SOCK_CLOSED;
     }
  
-    pico_signal_send(global_signal); /* Signal this event globally (e.g. for select()) */
+    pico_signal_send(pico_signal_select); /* Signal this event globally (e.g. for select()) */
     pico_signal_send(ep->signal);    /* Signal the endpoint that was blocking on this event */
 
     pico_mutex_unlock(ep->mutex_lock);
@@ -1347,7 +1356,7 @@ int pico_pselect(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
             break;
 
         /* If not, wait for a semaphore signaling an event from the stack */
-        if (pico_signal_wait_timeout(global_signal, (timeout->tv_sec * 1000) + ((timeout->tv_nsec) / 1000000)) == -1)
+        if (pico_signal_wait_timeout(pico_signal_select, (timeout->tv_sec * 1000) + ((timeout->tv_nsec) / 1000000)) == -1)
         {
             /* On timeout, break out of the loop */
             bsd_dbg_select("\t~~~ SELECT: TIMEOUT\n");
@@ -1422,7 +1431,7 @@ int pico_ppoll(struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout, 
             if (pfd[i].revents != 0)
                 ret++;
         } /* End for loop */
-        if ((ret == 0) && timeout && (pico_signal_wait_timeout(global_signal, (timeout->tv_sec * 1000) + ((timeout->tv_nsec) / 1000000)) == -1))
+        if ((ret == 0) && timeout && (pico_signal_wait_timeout(pico_signal_select, (timeout->tv_sec * 1000) + ((timeout->tv_nsec) / 1000000)) == -1))
                 return 0; /* Timeout */
     } /* End while loop */
     return ret;

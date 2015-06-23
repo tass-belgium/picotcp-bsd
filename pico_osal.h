@@ -24,14 +24,14 @@ typedef void *(*pico_thread_fn)(void *);
 void * pico_mutex_init(void);
 void pico_mutex_deinit(void * mutex);
 void pico_mutex_lock(void * mutex);
-int pico_mutex_lock_timeout(void * mutex, int timeout);
+int  pico_mutex_lock_timeout(void * mutex, int timeout);
 void pico_mutex_unlock(void * mutex);
 void pico_mutex_unlock_ISR(void * mutex);
 
 void * pico_signal_init(void);
 void pico_signal_deinit(void * signal);
 void pico_signal_wait(void * signal);
-int pico_signal_wait_timeout(void * signal, int timeout);
+int  pico_signal_wait_timeout(void * signal, int timeout);
 void pico_signal_send(void * signal);
 void pico_signal_send_ISR(void * signal);
 
