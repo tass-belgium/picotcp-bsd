@@ -441,6 +441,7 @@ int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, s
             port = bsd_to_pico_port(_dst, socklen);
             retval = pico_socket_sendto(ep->s, ((uint8_t *)buf) + tot_len, len - tot_len, &picoaddr, port);
         }
+        pico_event_clear(ep, PICO_SOCK_EV_WR);
         pico_mutex_unlock(picoLock);
 
         /* If sending failed, return an error */
@@ -451,9 +452,6 @@ int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, s
             pico_event_clear(ep, PICO_SOCK_EV_WR);
             return -1;
         }
-
-        /* No, error so clear the revent */
-        //pico_event_clear(ep, PICO_SOCK_EV_WR);
 
         if (retval > 0)
         {
