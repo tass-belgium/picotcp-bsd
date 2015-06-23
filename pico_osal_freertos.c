@@ -57,7 +57,7 @@ void pico_signal_deinit(void * signal)
 
 void pico_signal_wait(void * signal)
 {
-    pico_signal_wait_timeout(signal, portMAX_DELAY);
+    pico_signal_wait_timeout(signal, (int)portMAX_DELAY);
 }
 
 int pico_signal_wait_timeout(void * signal, int timeout)
@@ -128,7 +128,7 @@ int pico_mutex_lock_timeout(void * mutex, int timeout)
 
 void pico_mutex_lock(void * mutex)
 {
-    pico_signal_wait_timeout(mutex, portMAX_DELAY);
+    pico_signal_wait_timeout(mutex, (int)portMAX_DELAY);
 }
 
 void pico_mutex_unlock(void * mutex)
@@ -145,7 +145,7 @@ void pico_mutex_unlock_ISR(void * mutex)
 /* ============= */
 /* == THREADS == */
 /* ============= */
-static char thread_name[3] = "T";
+static char thread_name[4] = "T";
 static int thread_n = 0;
 
 pico_thread_t pico_thread_create(pico_thread_fn thread, void *arg, int stack_size, int prio)
@@ -156,6 +156,7 @@ pico_thread_t pico_thread_create(pico_thread_fn thread, void *arg, int stack_siz
     thread_name[2] = (thread_n++) % 10;
     thread_name[3] = 0; 
     xTaskCreate((TaskFunction_t)thread, thread_name, stack_size, arg, prio, t);
+		return t;
 }
 
 void pico_thread_destroy(pico_thread_t t)

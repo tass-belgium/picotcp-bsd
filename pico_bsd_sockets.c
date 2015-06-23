@@ -720,7 +720,6 @@ static uint16_t bsd_to_pico_port(struct sockaddr *_saddr, socklen_t socklen)
 
 static int pico_port_to_bsd(struct sockaddr *_saddr, socklen_t socklen, uint16_t port)
 {
-    VALIDATE_TWO(socklen, SOCKSIZE, SOCKSIZE6);
     if (socklen == SOCKSIZE6) {
         struct sockaddr_in6 *saddr = (struct sockaddr_in6 *)_saddr;
         saddr->sin6_port = port;
@@ -1268,7 +1267,7 @@ const char *pico_inet_ntop(int af, const void *src, char *dst, socklen_t size)
             break;
 #endif
         default:
-            return NULL;
+            dst = NULL;
             break;
     }
     return dst;
@@ -1277,7 +1276,7 @@ const char *pico_inet_ntop(int af, const void *src, char *dst, socklen_t size)
 char *pico_inet_ntoa(struct in_addr in)
 {
     static char ipbuf[INET_ADDRSTRLEN];
-    pico_ipv4_to_string(ipbuf, (const uint32_t)in.s_addr);
+    pico_ipv4_to_string(ipbuf, (uint32_t)in.s_addr);
     return ipbuf;
 }
 
