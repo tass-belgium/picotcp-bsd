@@ -194,6 +194,22 @@ extern void   *pico_signal_tick;
     #define SO_REUSEPORT    (15)
 #endif
 
+#ifndef FD_CLOEXEC
+    #define FD_CLOEXEC	1
+#endif
+
+#ifndef F_DUPFD
+    #define F_DUPFD 0
+#endif
+
+#ifndef F_GETFD
+    #define F_GETFD 1
+#endif
+
+#ifndef F_SETFD
+    #define F_SETFD 2 
+#endif
+
 #ifndef F_GETFL
     #define F_GETFL 3
 #endif
@@ -201,6 +217,7 @@ extern void   *pico_signal_tick;
 #ifndef F_SETFL
     #define F_SETFL 4
 #endif
+
 
 #ifndef O_NONBLOCK
     #define O_NONBLOCK  0x4000

@@ -318,7 +318,7 @@ int pico_connect(int sd, struct sockaddr *_saddr, socklen_t socklen)
     pico_mutex_unlock(picoLock);
 
     if (ep->nonblocking) {
-        pico_err = PICO_ERR_EBUSY; /* should be EINPROGRESS */
+        pico_err = PICO_ERR_EAGAIN;
         ep->error = pico_err;
     } else {
         /* wait for event */
