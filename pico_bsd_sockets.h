@@ -10,6 +10,7 @@ Author: Maxime Vincent, Daniele Lacamera
 #define PICO_BSD_SOCKETS_H_
 
 #include <stdint.h>
+#include <signal.h>
 #include "pico_defines.h"
 #include "pico_constants.h"
 #include "pico_config.h"
@@ -151,9 +152,11 @@ extern void   *pico_signal_tick;
     };
     
     typedef struct pico_fd_set_s pico_fd_set;
+    #ifndef fd_set
     #define fd_set pico_fd_set
+    #endif
     
-    typedef void sigset_t;
+    //typedef void sigset_t;
     
     #define   PICO_FD_SET(n, p)   ((p)->fds_bits[(n)/8] |=  (1u << ((n) % 8)))
     #define   PICO_FD_CLR(n, p)   ((p)->fds_bits[(n)/8] &= ~(1u << ((n) % 8)))
