@@ -131,12 +131,16 @@ static inline int ppoll(struct pollfd *pfd, nfds_t npfd, const struct timespec *
     return pico_ppoll(pfd, npfd, timeout_ts, sigmask);
 }
 
-#ifdef PICO_SUPPORT_SNTP_CLIENT
 static int gettimeofday(struct timeval *tv, struct timezone *tz)
 {
     return pico_gettimeofday(tv, tz);
 }
-#endif
+
+static int settimeofday(struct timeval *tv, struct timezone *tz)
+{
+    return pico_settimeofday(tv, tz);
+}
+
 
 static inline const char *inet_ntop(int af, const void *src, char *dst, socklen_t size)
 {

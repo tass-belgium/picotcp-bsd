@@ -11,7 +11,9 @@ Author: Maxime Vincent, Daniele Lacamera
 #include "pico_config.h"    /* for zalloc and free */
 #include "pico_bsd_sockets.h"
 #include "pico_osal.h"
+#ifdef PICO_SUPPORT_SNTP_CLIENT
 #include "pico_sntp_client.h"
+#endif
 
 #include <errno.h> /* should be there in C99 */
 
@@ -1252,7 +1254,6 @@ int pico_gettimeofday(struct timeval *tv, struct timezone *tz)
 {
     int ret;
     (void)tz;
-
     struct pico_timeval ptv;
 
     ret= pico_sntp_gettimeofday(&ptv);
@@ -1260,6 +1261,29 @@ int pico_gettimeofday(struct timeval *tv, struct timezone *tz)
     tv->tv_sec = ptv.tv_sec;
     tv->tv_usec= ptv.tv_msec * 1000; /* pico_timeval uses milliseconds instead of microseconds */
     return ret;
+}
+#else 
+
+static struct pico_timeval ptv = {0u,0u};
+
+int pico_gettimeofday(struct timeval *tv, struct timezone *tz)
+{
+    int ret;
+    (void)tz;
+
+    tv->tv_sec = ptv.tv_sec;
+    tv->tv_usec= ptv.tv_msec * 1000; /* pico_timeval uses milliseconds instead of microseconds */
+    return 0;
+}
+
+int pico_settimeofday(struct timeval *tv, struct timezone *tz)
+{
+    int ret;
+    (void)tz;
+
+    ptv.tv_sec = tv->tv_sec;
+    ptv.tv_msec= tv->tv_usec / 1000; /* pico_timeval uses milliseconds instead of microseconds */
+    return 0;
 }
 
 long XTIME(void) {
@@ -1348,8 +1372,12 @@ int pico_pselect(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
                     PICO_FD_SET(i, &readfds_out);
                 }
 
-                /* WRITE event needed and available? */
-                if (writefds && PICO_FD_ISSET(i,writefds) && (ep->revents & (PICO_SOCK_EV_WR)))
+                /* Force write events on empty udp sockets */
+                if ((ep->proto == PICO_PROTO_UDP) && (ep->s->q_out.size < ep->s->q_out.max_size))
+                    ep->revents |= PICO_SOCK_EV_WR;
+
+                /* WRITE event needed? and available? */
+                if (writefds && PICO_FD_ISSET(i,writefds) && (ep->revents & (PICO_SOCK_EV_WR))) 
                 {
                     bsd_dbg_select("- WRITE_EV - ");
                     nfds_out++;

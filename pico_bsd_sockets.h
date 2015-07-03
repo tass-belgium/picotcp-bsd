@@ -288,11 +288,19 @@ int pico_poll                (struct pollfd *pfd, nfds_t npfd, int timeout);
 int pico_ppoll               (struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout_ts, const sigset_t *sigmask);
 
 
-#ifdef PICO_SUPPORT_SNTP_CLIENT
-    int pico_gettimeofday(struct timeval *tv, struct timezone *tz);
-    long XTIME(void);
-    #define XGMTIME gmtime
+#ifndef PICO_SUPPORT_SNTP_CLIENT
+    struct pico_timeval
+    {
+        pico_time tv_sec;
+        pico_time tv_msec;
+    };
+    int pico_settimeofday(struct timeval *tv, struct timezone *tz);
 #endif
+
+
+int pico_gettimeofday(struct timeval *tv, struct timezone *tz);
+long XTIME(void);
+#define XGMTIME gmtime
 
 /* arpa/inet.h */
 const char *pico_inet_ntop   (int af, const void *src, char *dst, socklen_t size);
