@@ -895,7 +895,7 @@ static void pico_socket_event(uint16_t ev, struct pico_socket *s)
         return;
     if(!ep || !ep->s || !ep->mutex_lock || !ep->signal )
     {
-        if(ev & (PICO_SOCK_EV_CLOSE | PICO_SOCK_EV_FIN) )
+        if(ev & (PICO_SOCK_EV_CLOSE | PICO_SOCK_EV_FIN | PICO_SOCK_EV_ERR) )
         {
             pico_signal_send(pico_signal_select); /* Signal this event globally (e.g. for select()) */
             pico_socket_close(s);
