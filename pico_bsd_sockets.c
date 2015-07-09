@@ -1286,12 +1286,13 @@ int pico_settimeofday(struct timeval *tv, struct timezone *tz)
     return 0;
 }
 
+#endif
+
 long XTIME(void) {
     struct timeval t;
-    pico_gettimeofday(&t, NULL); 
+    pico_gettimeofday(&t, NULL);
     return (long)t.tv_sec;
 }
-#endif
 
 const char *pico_inet_ntop(int af, const void *src, char *dst, socklen_t size)
 {
