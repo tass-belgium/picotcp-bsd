@@ -1,8 +1,6 @@
 #ifndef PICO_BSD_SYSCALLS_H_
 #define PICO_BSD_SYSCALLS_H_
 
-#include "pico_bsd_sockets.h"
-
 static inline int socket(int domain, int type, int proto)
 {
     return pico_newsocket(domain, type, proto);
