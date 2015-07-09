@@ -174,8 +174,8 @@ extern void   *pico_signal_tick;
             time_t tv_sec;
             time_t tv_usec;
         };
-        
-        #ifndef __timespec_defined
+
+        #if !defined __timespec_defined && !defined _SYS__TIMESPEC_H_
             struct timespec {
                 long tv_sec;
                 long tv_nsec;
