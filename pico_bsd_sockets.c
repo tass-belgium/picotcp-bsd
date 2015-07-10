@@ -1262,6 +1262,15 @@ int pico_gettimeofday(struct timeval *tv, struct timezone *tz)
     tv->tv_usec= ptv.tv_msec * 1000; /* pico_timeval uses milliseconds instead of microseconds */
     return ret;
 }
+
+/* dummy function */
+int pico_settimeofday(struct timeval *tv, struct timezone *tz)
+{
+    (void)tz;
+    (void)tv;
+    return 0;
+}
+
 #else 
 
 static struct pico_timeval ptv = {0u,0u};
@@ -1285,7 +1294,6 @@ int pico_settimeofday(struct timeval *tv, struct timezone *tz)
     ptv.tv_msec= tv->tv_usec / 1000; /* pico_timeval uses milliseconds instead of microseconds */
     return 0;
 }
-
 #endif
 
 long XTIME(void) {

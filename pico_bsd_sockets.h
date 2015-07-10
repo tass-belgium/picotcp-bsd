@@ -313,6 +313,8 @@ void                        pico_bsd_stack_tick(void);
 void                        pico_bsd_stack_tick_timeout(int timeout_ms);
 uint16_t                    pico_bsd_select(struct pico_bsd_endpoint *ep);
 
-#include "pico_bsd_syscalls.h"
+#ifdef REPLACE_STDCALLS
+    #include "pico_bsd_syscalls.h"
+#endif
 
 #endif /* PICO_BSD_SOCKETS_H_ */
