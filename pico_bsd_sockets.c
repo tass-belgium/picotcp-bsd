@@ -570,6 +570,14 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
 
         /* pico_socket_recvfrom failed */
         if (retval < 0) {
+            /* data was received */
+            if (tot_len > 0)
+            {
+                bsd_dbg("Recvfrom returning %d\n", tot_len);
+                ep->error = pico_err;
+                return tot_len;
+            }
+            /* no data was received yet */
             ep->error = pico_err;
             if (pico_err == PICO_ERR_ESHUTDOWN) /* If no messages are available to be received and the peer has performed an orderly shutdown, recvfrom() shall return 0. */
             {
