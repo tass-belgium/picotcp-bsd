@@ -555,6 +555,11 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
     VALIDATE_NULL(ep);
     ep->error = PICO_ERR_NOERR;
 
+    if (ep->state == SOCK_RESET_BY_PEER)  {
+        /* not much to do here. Peer has nothing to say. */
+        return 0;
+    }
+
     if (!buf || (len <= 0)) {
         pico_err = PICO_ERR_EINVAL;
         errno = pico_err;
@@ -838,11 +843,16 @@ static struct pico_bsd_endpoint *pico_bsd_create_socket(void)
     return ep;
 }
 
+
+#ifndef PICO_EBADFD
+#   define PICO_EBADFD      77  /* File descriptor in bad state */
+#endif
+
 static struct pico_bsd_endpoint *get_endpoint(int sd)
 {
     if ((sd > PicoSocket_max) || (sd < 0) || 
          (PicoSockets[sd]->in_use == 0)) {
-        pico_err = PICO_ERR_EINVAL;
+        pico_err = PICO_EBADFD;
         errno = pico_err;
         return NULL;
     }
@@ -903,11 +913,16 @@ static void pico_socket_event(uint16_t ev, struct pico_socket *s)
         return;
     if(!ep || !ep->s || !ep->mutex_lock || !ep->signal )
     {
-        if(ev & (PICO_SOCK_EV_CLOSE | PICO_SOCK_EV_FIN | PICO_SOCK_EV_ERR) )
+        /* DLA: do not call close upon SOCK_CLOSE, we might still write. */
+        if(ev & (PICO_SOCK_EV_FIN | PICO_SOCK_EV_ERR) )
         {
             pico_signal_send(pico_signal_select); /* Signal this event globally (e.g. for select()) */
             pico_socket_close(s);
         }
+
+        if (ev & PICO_SOCK_EV_CLOSE)
+            pico_signal_send(pico_signal_select);
+
         /* endpoint not initialized yet! */
         return;
     }
@@ -937,7 +952,8 @@ static void pico_socket_event(uint16_t ev, struct pico_socket *s)
     }
 
     if (ev & PICO_SOCK_EV_CLOSE) {
-        ep->state = SOCK_CLOSED;
+        ep->state = SOCK_RESET_BY_PEER;
+        /* DO NOT close: we might still write! */
     }
 
     if (ev & PICO_SOCK_EV_FIN) {
@@ -1477,7 +1493,7 @@ int pico_ppoll(struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout, 
                 ret++;
             }
             if (ep->events & PICO_SOCK_EV_CLOSE)
-                pfd[i].revents |= POLLHUP;
+                pfd[i].revents |= POLLHUP; /* XXX: I am sure we mean POLLRDHUP ! see man 2 poll */
 
             /* Checking POLLIN */
             if ((pfd[i].events & POLLIN)  && (ep->events & (PICO_SOCK_EV_RD | PICO_SOCK_EV_CONN))) {
