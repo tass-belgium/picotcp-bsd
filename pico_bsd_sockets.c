@@ -162,7 +162,7 @@ int pico_newsocket(int domain, int type, int proto)
     ep->s = pico_socket_open(domain, type,&pico_socket_event);
     if (!ep->s)
     {
-        pico_free(ep);
+        PICO_FREE(ep);
         pico_mutex_unlock(picoLock);
         return -1;
     }
@@ -401,7 +401,7 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
             *socklen = SOCKSIZE6;
         client_ep->state = SOCK_CONNECTED;
         if (pico_addr_to_bsd(_orig, *socklen, &picoaddr, client_ep->s->net->proto_number) < 0) {
-            free_up_ep(client_ep);
+            client_ep->in_use = 0;
             pico_mutex_unlock(picoLock);
             return -1;
         }
@@ -412,7 +412,7 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
         ep->error = pico_err;
         return client_ep->socket_fd;
     }
-    free_up_ep(client_ep);
+    client_ep->in_use = 0;
     ep->error = pico_err;
     errno = pico_err;
     return -1;
@@ -789,7 +789,7 @@ static void free_up_ep(struct pico_bsd_endpoint *ep)
         pico_signal_deinit(ep->signal);
     if (ep->mutex_lock)
         pico_mutex_deinit(ep->mutex_lock);
-    pico_free(ep);
+    PICO_FREE(ep);
 }
 
 static int get_free_sd(struct pico_bsd_endpoint *ep)
@@ -811,7 +811,7 @@ static int new_sd(struct pico_bsd_endpoint *ep)
 {
     int sd = PicoSocket_max;
     struct pico_bsd_endpoint **new;
-    new = pico_zalloc(sizeof(void *) * ++PicoSocket_max);
+    new = PICO_ZALLOC(sizeof(void *) * ++PicoSocket_max);
     if (!new) {
         PicoSocket_max--;
         pico_err = PICO_ERR_ENOMEM;
@@ -820,7 +820,7 @@ static int new_sd(struct pico_bsd_endpoint *ep)
     }
     if (sd > 0) {
         memcpy(new, PicoSockets, sd * sizeof(void *));
-        pico_free(PicoSockets);
+        PICO_FREE(PicoSockets);
     }
     PicoSockets = new;
     new[sd] = ep;
@@ -830,7 +830,7 @@ static int new_sd(struct pico_bsd_endpoint *ep)
 /* picoLock must be taken already ! */
 static struct pico_bsd_endpoint *pico_bsd_create_socket(void)
 {
-    struct pico_bsd_endpoint *ep = pico_zalloc(sizeof(struct pico_bsd_endpoint));
+    struct pico_bsd_endpoint *ep = PICO_ZALLOC(sizeof(struct pico_bsd_endpoint));
     if (!ep) {
         pico_err = PICO_ERR_ENOMEM;
         errno = pico_err;
@@ -981,7 +981,7 @@ struct dnsquery_cookie
 
 static struct dnsquery_cookie *dnsquery_cookie_create(struct addrinfo **res, uint8_t block)
 {
-    struct dnsquery_cookie *ck = pico_zalloc(sizeof(struct dnsquery_cookie));
+    struct dnsquery_cookie *ck = PICO_ZALLOC(sizeof(struct dnsquery_cookie));
     if (!ck) {
         pico_err = PICO_ERR_ENOMEM;
         errno = pico_err;
@@ -1001,11 +1001,11 @@ static void dns_ip6_cb(char *ip, void *arg)
     struct addrinfo *new;
     if (ck->cleanup) { /* call is no more valid. Caller got tired of waiting. */
         pico_signal_deinit(ck->signal);
-        pico_free(ck);
+        PICO_FREE(ck);
         return;
     }
     if (ip) {
-        new = pico_zalloc(sizeof(struct addrinfo));
+        new = PICO_ZALLOC(sizeof(struct addrinfo));
         if (!new) {
             ck->revents = DNSQUERY_FAIL;
             if (ck->block)
@@ -1013,9 +1013,9 @@ static void dns_ip6_cb(char *ip, void *arg)
             return;
         }
         new->ai_family = AF_INET6;
-        new->ai_addr = pico_zalloc(sizeof(struct sockaddr_in6));
+        new->ai_addr = PICO_ZALLOC(sizeof(struct sockaddr_in6));
         if (!new->ai_addr) {
-            pico_free(new);
+            PICO_FREE(new);
             ck->revents = DNSQUERY_FAIL;
             if (ck->block)
                 pico_signal_send(ck->signal);
@@ -1039,11 +1039,11 @@ static void dns_ip4_cb(char *ip, void *arg)
     struct addrinfo *new;
     if (ck->cleanup) { /* call is no more valid. Caller got tired of waiting. */
         pico_signal_deinit(ck->signal);
-        pico_free(ck);
+        PICO_FREE(ck);
         return;
     }
     if (ip) {
-        new = pico_zalloc(sizeof(struct addrinfo));
+        new = PICO_ZALLOC(sizeof(struct addrinfo));
         if (!new) {
             ck->revents = DNSQUERY_FAIL;
             if (ck->block)
@@ -1051,9 +1051,9 @@ static void dns_ip4_cb(char *ip, void *arg)
             return;
         }
         new->ai_family = AF_INET;
-        new->ai_addr = pico_zalloc(sizeof(struct sockaddr_in));
+        new->ai_addr = PICO_ZALLOC(sizeof(struct sockaddr_in));
         if (!new->ai_addr) {
-            pico_free(new);
+            PICO_FREE(new);
             ck->revents = DNSQUERY_FAIL;
             if (ck->block)
                 pico_signal_send(ck->signal);
@@ -1086,7 +1086,7 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
         ck6 = dnsquery_cookie_create(res, 0);
         dns_ip6_cb((char *)node, ck6);
         pico_signal_deinit(ck6->signal);
-        pico_free(ck6);
+        PICO_FREE(ck6);
         return 0;
     }
 #endif
@@ -1095,7 +1095,7 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
         ck4 = dnsquery_cookie_create(res, 0);
         dns_ip4_cb((char*)node, ck4);
         pico_signal_deinit(ck4->signal);
-        pico_free(ck4);
+        PICO_FREE(ck4);
         return 0;
     }
 
@@ -1124,7 +1124,7 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
     if (ck6) {
         if (pico_signal_wait_timeout(ck6->signal, 2000) == 0) {
             pico_signal_deinit(ck6->signal);
-            pico_free(ck6);
+            PICO_FREE(ck6);
         } else {
             ck6->cleanup = 1;
         }
@@ -1133,7 +1133,7 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
     if (ck4) {
         if (pico_signal_wait_timeout(ck4->signal, 2000) == 0) {
             pico_signal_deinit(ck4->signal);
-            pico_free(ck4);
+            PICO_FREE(ck4);
         } else {
             ck4->cleanup = 1;
         }
@@ -1149,9 +1149,9 @@ void pico_freeaddrinfo(struct addrinfo *res)
     struct addrinfo *nxt;
     while(cur) {
         if (cur->ai_addr)
-            pico_free(cur->ai_addr);
+            PICO_FREE(cur->ai_addr);
         nxt = cur->ai_next;
-        pico_free(cur);
+        PICO_FREE(cur);
         cur = nxt;
     }
 }
@@ -1165,20 +1165,20 @@ struct hostent *pico_gethostbyname(const char *name)
     int ret;
     if (!PRIV_HOSTENT.h_addr_list) {
         /* Done only once: reserve space for 2 entries */
-        PRIV_HOSTENT.h_addr_list = pico_zalloc(2 * sizeof(void*));
+        PRIV_HOSTENT.h_addr_list = PICO_ZALLOC(2 * sizeof(void*));
         PRIV_HOSTENT.h_addr_list[1] = NULL;
     }
     ret = pico_getaddrinfo(name, NULL, &hint, &res);
     if (ret == 0) {
         if (PRIV_HOSTENT.h_name != NULL) {
-            pico_free(PRIV_HOSTENT.h_name);
+            PICO_FREE(PRIV_HOSTENT.h_name);
             PRIV_HOSTENT.h_name = NULL;
         }
         if (PRIV_HOSTENT.h_addr_list[0] != NULL) {
-            pico_free(PRIV_HOSTENT.h_addr_list[0]);
+            PICO_FREE(PRIV_HOSTENT.h_addr_list[0]);
             PRIV_HOSTENT.h_addr_list[0] = NULL;
         }
-        PRIV_HOSTENT.h_name = pico_zalloc(strlen(name));
+        PRIV_HOSTENT.h_name = PICO_ZALLOC(strlen(name));
         if (!PRIV_HOSTENT.h_name) {
             pico_freeaddrinfo(res);
             return NULL;
@@ -1187,7 +1187,7 @@ struct hostent *pico_gethostbyname(const char *name)
         PRIV_HOSTENT.h_addrtype = res->ai_addr->sa_family;
         if (PRIV_HOSTENT.h_addrtype == AF_INET) {
             PRIV_HOSTENT.h_length = 4;
-            PRIV_HOSTENT.h_addr_list[0] = pico_zalloc(4); 
+            PRIV_HOSTENT.h_addr_list[0] = PICO_ZALLOC(4); 
             if (!PRIV_HOSTENT.h_addr_list[0]) {
                 pico_freeaddrinfo(res);
                 return NULL;
