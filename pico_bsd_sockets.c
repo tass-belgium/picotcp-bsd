@@ -310,6 +310,7 @@ int pico_connect(int sd, struct sockaddr *_saddr, socklen_t socklen)
     union pico_address addr;
     uint16_t port;
     uint16_t ev;
+    int ret;
 
     VALIDATE_NULL(ep);
     ep->error = PICO_ERR_NOERR;
@@ -322,8 +323,12 @@ int pico_connect(int sd, struct sockaddr *_saddr, socklen_t socklen)
     }
     port = bsd_to_pico_port(_saddr, socklen);
     pico_mutex_lock(picoLock);
-    pico_socket_connect(ep->s, &addr, port);
+    ret = pico_socket_connect(ep->s, &addr, port);
     pico_mutex_unlock(picoLock);
+    if (ret < 0) {
+        ep->error = pico_err;
+        return -1;
+    }    
 
     if (ep->nonblocking) {
         pico_err = PICO_ERR_EAGAIN;
