@@ -1127,7 +1127,7 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
     }
 
     if (ck6) {
-        if (pico_signal_wait_timeout(ck6->signal, 2000) == 0) {
+        if (pico_signal_wait_timeout(ck6->signal, 3 * 4000) == 0) { /* timeout should be linked to dns_client module... */
             pico_signal_deinit(ck6->signal);
             PICO_FREE(ck6);
         } else {
@@ -1136,7 +1136,7 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
     }
 
     if (ck4) {
-        if (pico_signal_wait_timeout(ck4->signal, 2000) == 0) {
+        if (pico_signal_wait_timeout(ck4->signal, 3 * 4000) == 0) { /* timeout should be linked to dns_client module... */
             pico_signal_deinit(ck4->signal);
             PICO_FREE(ck4);
         } else {
