@@ -949,11 +949,7 @@ static void pico_socket_event(uint16_t ev, struct pico_socket *s)
 
     if(ev & PICO_SOCK_EV_ERR)
     {
-      if(pico_err == PICO_ERR_ECONNRESET)
-      {
-        bsd_dbg("Connection reset by peer...\n");
-        ep->state = SOCK_RESET_BY_PEER;
-      }
+      ep->state = SOCK_RESET_BY_PEER;
     }
 
     if (ev & PICO_SOCK_EV_CLOSE) {
@@ -981,7 +977,6 @@ struct dnsquery_cookie
     void            *signal;
     uint8_t         block;
     uint8_t        revents;
-    int             cleanup;
 };
 
 static struct dnsquery_cookie *dnsquery_cookie_create(struct addrinfo **res, uint8_t block)
@@ -995,7 +990,6 @@ static struct dnsquery_cookie *dnsquery_cookie_create(struct addrinfo **res, uin
     ck->signal = pico_signal_init();
     ck->res = res;
     ck->block = block;
-    ck->cleanup = 0;
     return ck;
 }
 
@@ -1004,11 +998,7 @@ static void dns_ip6_cb(char *ip, void *arg)
 {
     struct dnsquery_cookie *ck = (struct dnsquery_cookie *)arg;
     struct addrinfo *new;
-    if (ck->cleanup) { /* call is no more valid. Caller got tired of waiting. */
-        pico_signal_deinit(ck->signal);
-        PICO_FREE(ck);
-        return;
-    }
+
     if (ip) {
         new = PICO_ZALLOC(sizeof(struct addrinfo));
         if (!new) {
@@ -1032,7 +1022,11 @@ static void dns_ip6_cb(char *ip, void *arg)
         new->ai_next = *ck->res;
         *ck->res = new;
         ck->revents = DNSQUERY_OK;
+    } else {
+        /* No ip given, but still callback was called: timeout! */
+        ck->revents = DNSQUERY_FAIL;
     }
+
     if (ck->block)
         pico_signal_send(ck->signal);
 }
@@ -1042,11 +1036,6 @@ static void dns_ip4_cb(char *ip, void *arg)
 {
     struct dnsquery_cookie *ck = (struct dnsquery_cookie *)arg;
     struct addrinfo *new;
-    if (ck->cleanup) { /* call is no more valid. Caller got tired of waiting. */
-        pico_signal_deinit(ck->signal);
-        PICO_FREE(ck);
-        return;
-    }
     if (ip) {
         new = PICO_ZALLOC(sizeof(struct addrinfo));
         if (!new) {
@@ -1070,6 +1059,9 @@ static void dns_ip4_cb(char *ip, void *arg)
         new->ai_next = *ck->res;
         *ck->res = new;
         ck->revents = DNSQUERY_OK;
+    } else {
+        /* No ip given, but still callback was called: timeout! */
+        ck->revents = DNSQUERY_FAIL;
     }
     if (ck->block)
         pico_signal_send(ck->signal);
@@ -1111,7 +1103,13 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
             if (!ck6)
                 return -1;
             pico_mutex_lock(picoLock);
-            pico_dns_client_getaddr6(node, dns_ip6_cb, ck6);
+            if (pico_dns_client_getaddr6(node, dns_ip6_cb, ck6) < 0)
+            {
+                bsd_dbg("Error resolving AAAA record %s\n", node);
+                pico_signal_deinit(ck6->signal);
+                PICO_FREE(ck6);
+                return -1;
+            }
             bsd_dbg("Resolving AAAA record %s\n", node);
             pico_mutex_unlock(picoLock);
         }
@@ -1121,30 +1119,32 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
     if (!hints || (hints->ai_family == AF_INET)) {
         ck4 = dnsquery_cookie_create(res, 1);
         pico_mutex_lock(picoLock);
-        pico_dns_client_getaddr(node, dns_ip4_cb, ck4);
+        if (pico_dns_client_getaddr(node, dns_ip4_cb, ck4) < 0)
+        {
+            bsd_dbg("Error resolving A record %s\n", node);
+            pico_signal_deinit(ck4->signal);
+            PICO_FREE(ck4);
+            return -1;
+        }
         bsd_dbg("Resolving A record %s\n", node);
         pico_mutex_unlock(picoLock);
     }
 
+#ifdef PICO_SUPPORT_IPV6
     if (ck6) {
-        if (pico_signal_wait_timeout(ck6->signal, 3 * 4000) == 0) { /* timeout should be linked to dns_client module... */
-            pico_signal_deinit(ck6->signal);
-            PICO_FREE(ck6);
-        } else {
-            ck6->cleanup = 1;
-        }
+        /* Signal is always sent; either dns resolved, or timeout/failure */
+        pico_signal_wait(ck6->signal);
     }
+#endif /* PICO_SUPPORT_IPV6 */
 
     if (ck4) {
-        if (pico_signal_wait_timeout(ck4->signal, 3 * 4000) == 0) { /* timeout should be linked to dns_client module... */
-            pico_signal_deinit(ck4->signal);
-            PICO_FREE(ck4);
-        } else {
-            ck4->cleanup = 1;
-        }
+        /* Signal is always sent; either dns resolved, or timeout/failure */
+        pico_signal_wait(ck4->signal);
     }
+
     if (*res)
         return 0;
+
     return -1;
 }
 

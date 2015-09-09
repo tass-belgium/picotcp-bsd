@@ -36,6 +36,9 @@ extern void   *pico_signal_tick;
     #include <netdb.h>
     #include <fcntl.h>
     #include <sys/poll.h>
+    #ifdef __linux__
+        #include <linux/tcp.h>
+    #endif
     
     static inline int sockopt_get_name(int posix_name)
     {
@@ -47,9 +50,9 @@ extern void   *pico_signal_tick;
             case IP_DROP_MEMBERSHIP: return PICO_IP_DROP_MEMBERSHIP;
             case SO_RCVBUF   : return PICO_SOCKET_OPT_RCVBUF;
             case SO_SNDBUF   : return PICO_SOCKET_OPT_SNDBUF;
-            case SO_KEEPCNT   : return PICO_SOCKET_OPT_KEEPCNT;
-            case SO_KEEPIDLE   : return PICO_SOCKET_OPT_KEEPIDLE;
-            case SO_KEEPINTVL   : return PICO_SOCKET_OPT_KEEPINTVL;
+            case TCP_KEEPCNT   : return PICO_SOCKET_OPT_KEEPCNT;
+            case TCP_KEEPIDLE   : return PICO_SOCKET_OPT_KEEPIDLE;
+            case TCP_KEEPINTVL   : return PICO_SOCKET_OPT_KEEPINTVL;
         }
         return -1;
     }
@@ -80,9 +83,9 @@ extern void   *pico_signal_tick;
     #define IP_DROP_MEMBERSHIP  (PICO_IP_DROP_MEMBERSHIP)
     #define SO_RCVBUF           (PICO_SOCKET_OPT_RCVBUF)
     #define SO_SNDBUF           (PICO_SOCKET_OPT_SNDBUF)
-    #define SO_KEEPCNT          (PICO_SOCKET_OPT_KEEPCNT)
-    #define SO_KEEPIDLE         (PICO_SOCKET_OPT_KEEPIDLE)
-    #define SO_KEEPINTVL        (PICO_SOCKET_OPT_KEEPINTVL)
+    #define TCP_KEEPCNT         (PICO_SOCKET_OPT_KEEPCNT)
+    #define TCP_KEEPIDLE        (PICO_SOCKET_OPT_KEEPIDLE)
+    #define TCP_KEEPINTVL       (PICO_SOCKET_OPT_KEEPINTVL)
     #define SO_ERROR            (4103)
     #define SO_REUSEADDR        (2)
     #define sockopt_get_name(x) ((x))
