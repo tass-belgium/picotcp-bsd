@@ -1493,21 +1493,21 @@ int pico_ppoll(struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout, 
             if (!ep->in_use) {
                 pfd[i].revents |= POLLNVAL;
             }
-            if (ep->events & (PICO_SOCK_EV_FIN | PICO_SOCK_EV_ERR)) {
+            if (ep->revents & (PICO_SOCK_EV_FIN | PICO_SOCK_EV_ERR)) {
                 pfd[i].revents |= POLLERR;
                 ret++;
             }
-            if (ep->events & PICO_SOCK_EV_CLOSE)
+            if (ep->revents & PICO_SOCK_EV_CLOSE)
                 pfd[i].revents |= POLLHUP; /* XXX: I am sure we mean POLLRDHUP ! see man 2 poll */
 
             /* Checking POLLIN */
-            if ((pfd[i].events & POLLIN)  && (ep->events & (PICO_SOCK_EV_RD | PICO_SOCK_EV_CONN))) {
+            if ((pfd[i].events & POLLIN)  && (ep->revents & (PICO_SOCK_EV_RD | PICO_SOCK_EV_CONN))) {
                 pfd[i].revents |= POLLIN;
                 if (pfd[i].events & POLLRDNORM)
                     pfd[i].revents |= POLLRDNORM;
             }
             /* Checking POLLOUT */
-            if ((pfd[i].events & POLLOUT) && (ep->events & (PICO_SOCK_EV_WR))) {
+            if ((pfd[i].events & POLLOUT) && (ep->revents & (PICO_SOCK_EV_WR))) {
                 pfd[i].revents |= POLLOUT;
                 if (pfd[i].events & POLLWRNORM)
                     pfd[i].revents |= POLLWRNORM;
