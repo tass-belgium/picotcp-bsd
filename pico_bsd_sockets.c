@@ -993,6 +993,22 @@ static struct dnsquery_cookie *dnsquery_cookie_create(struct addrinfo **res, uin
     return ck;
 }
 
+static int dnsquery_cookie_delete(struct dnsquery_cookie *ck)
+{
+    if (!ck) {
+        pico_err = PICO_ERR_EINVAL;
+        errno = pico_err;
+        return -1;
+    }
+    if (ck->signal)
+    {
+        pico_signal_deinit(ck->signal);
+        ck->signal = NULL;
+    }
+    PICO_FREE(ck);
+    return 0;
+}
+
 #ifdef PICO_SUPPORT_IPV6
 static void dns_ip6_cb(char *ip, void *arg)
 {
@@ -1082,8 +1098,7 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
     if (pico_string_to_ipv6(node, sa6.sin6_addr.s6_addr) == 0) {
         ck6 = dnsquery_cookie_create(res, 0);
         dns_ip6_cb((char *)node, ck6);
-        pico_signal_deinit(ck6->signal);
-        PICO_FREE(ck6);
+        dnsquery_cookie_delete(ck6);
         return 0;
     }
 #endif
@@ -1091,8 +1106,7 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
     if (pico_string_to_ipv4(node, &sa4.sin_addr.s_addr) == 0) {
         ck4 = dnsquery_cookie_create(res, 0);
         dns_ip4_cb((char*)node, ck4);
-        pico_signal_deinit(ck4->signal);
-        PICO_FREE(ck4);
+        dnsquery_cookie_delete(ck4);
         return 0;
     }
 
@@ -1106,8 +1120,8 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
             if (pico_dns_client_getaddr6(node, dns_ip6_cb, ck6) < 0)
             {
                 bsd_dbg("Error resolving AAAA record %s\n", node);
-                pico_signal_deinit(ck6->signal);
-                PICO_FREE(ck6);
+                dnsquery_cookie_delete(ck6);
+                pico_mutex_unlock(picoLock);
                 return -1;
             }
             bsd_dbg("Resolving AAAA record %s\n", node);
@@ -1122,8 +1136,8 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
         if (pico_dns_client_getaddr(node, dns_ip4_cb, ck4) < 0)
         {
             bsd_dbg("Error resolving A record %s\n", node);
-            pico_signal_deinit(ck4->signal);
-            PICO_FREE(ck4);
+            dnsquery_cookie_delete(ck4);
+            pico_mutex_unlock(picoLock);
             return -1;
         }
         bsd_dbg("Resolving A record %s\n", node);
@@ -1134,12 +1148,14 @@ int pico_getaddrinfo(const char *node, const char *service, const struct addrinf
     if (ck6) {
         /* Signal is always sent; either dns resolved, or timeout/failure */
         pico_signal_wait(ck6->signal);
+        dnsquery_cookie_delete(ck6);
     }
 #endif /* PICO_SUPPORT_IPV6 */
 
     if (ck4) {
         /* Signal is always sent; either dns resolved, or timeout/failure */
         pico_signal_wait(ck4->signal);
+        dnsquery_cookie_delete(ck4);
     }
 
     if (*res)
