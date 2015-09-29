@@ -4,7 +4,9 @@
 #include "pico_stack.h"
 #include "pico_osal.h"
 #include <semaphore.h>
+#include <time.h>
 
+#define BILLION 1000000000
 
 void * pico_mutex_init(void) {
     pthread_mutex_t *mutex = pico_zalloc(sizeof(pthread_mutex_t));
@@ -70,7 +72,14 @@ int pico_signal_wait_timeout(void * signal, int timeout)
     if (timeout < 0) {
         return sem_wait((sem_t *) signal);
     } else {
-        struct timespec ts = { timeout / 1000, (timeout % 1000) * 1000000 };
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_sec += (timeout / 1000);
+        ts.tv_nsec += ((timeout % 1000) * 1000000);
+        if (ts.tv_nsec >= BILLION) {
+            ts.tv_nsec -= BILLION;
+            ts.tv_sec++;
+        }
         return sem_timedwait((sem_t *) signal, &ts);
     }
 }
