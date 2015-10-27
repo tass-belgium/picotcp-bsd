@@ -113,7 +113,7 @@ static struct pico_bsd_endpoint *pico_bsd_create_socket(void);
 static int get_free_sd(struct pico_bsd_endpoint *ep);
 static int new_sd(struct pico_bsd_endpoint *ep);
 static void free_up_ep(struct pico_bsd_endpoint *ep);
-static struct pico_bsd_endpoint *get_endpoint(int sd);
+static struct pico_bsd_endpoint *get_endpoint(int sd, int set_err);
 static int bsd_to_pico_addr(union pico_address *addr, struct sockaddr *_saddr, socklen_t socklen);
 static uint16_t bsd_to_pico_port(struct sockaddr *_saddr, socklen_t socklen);
 static int pico_addr_to_bsd(struct sockaddr *_saddr, socklen_t socklen, union pico_address *addr, uint16_t net);
@@ -183,7 +183,7 @@ int pico_bind(int sd, struct sockaddr * local_addr, socklen_t socklen)
 { 
     union pico_address addr = { .ip4 = { 0 } };
     uint16_t port;
-    struct pico_bsd_endpoint *ep = get_endpoint(sd);
+    struct pico_bsd_endpoint *ep = get_endpoint(sd, 1);
 
     VALIDATE_NULL(ep);
     ep->error = PICO_ERR_NOERR;
@@ -217,7 +217,7 @@ int pico_getsockname(int sd, struct sockaddr * local_addr, socklen_t *socklen)
 { 
     union pico_address addr;
     uint16_t port, proto;
-    struct pico_bsd_endpoint *ep = get_endpoint(sd);
+    struct pico_bsd_endpoint *ep = get_endpoint(sd, 1);
     VALIDATE_NULL(ep);
     ep->error = PICO_ERR_NOERR;
     VALIDATE_NULL(local_addr);
@@ -252,7 +252,7 @@ int pico_getpeername(int sd, struct sockaddr * remote_addr, socklen_t *socklen)
 { 
     union pico_address addr;
     uint16_t port, proto;
-    struct pico_bsd_endpoint *ep = get_endpoint(sd);
+    struct pico_bsd_endpoint *ep = get_endpoint(sd, 1);
     VALIDATE_NULL(ep);
     ep->error = PICO_ERR_NOERR;
     VALIDATE_NULL(remote_addr);
@@ -281,7 +281,7 @@ int pico_getpeername(int sd, struct sockaddr * remote_addr, socklen_t *socklen)
 
 int pico_listen(int sd, int backlog)
 {
-    struct pico_bsd_endpoint *ep = get_endpoint(sd);
+    struct pico_bsd_endpoint *ep = get_endpoint(sd, 1);
 
     VALIDATE_NULL(ep);
     ep->error = PICO_ERR_NOERR;
@@ -306,10 +306,10 @@ int pico_listen(int sd, int backlog)
 
 int pico_connect(int sd, struct sockaddr *_saddr, socklen_t socklen)
 {
-    struct pico_bsd_endpoint *ep = get_endpoint(sd);
+    struct pico_bsd_endpoint *ep = get_endpoint(sd, 1);
     union pico_address addr;
     uint16_t port;
-    uint16_t ev;
+    uint16_t ev = 0;
     int ret;
 
     VALIDATE_NULL(ep);
@@ -360,7 +360,7 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
     union pico_address picoaddr;
     uint16_t port;
 
-    ep = get_endpoint(sd);
+    ep = get_endpoint(sd, 1);
 
     VALIDATE_NULL(ep);
     ep->error = PICO_ERR_NOERR;
@@ -429,7 +429,7 @@ int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, s
     int tot_len = 0;
     uint16_t port;
     union pico_address picoaddr;
-    struct pico_bsd_endpoint *ep = get_endpoint(sd);
+    struct pico_bsd_endpoint *ep = get_endpoint(sd, 1);
 
     VALIDATE_NULL(ep);
     ep->error = PICO_ERR_NOERR;
@@ -501,7 +501,7 @@ int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, s
 
 int pico_fcntl(int sd, int cmd, int arg)
 {
-    struct pico_bsd_endpoint *ep = get_endpoint(sd);
+    struct pico_bsd_endpoint *ep = get_endpoint(sd, 1);
     if (!ep) {
         pico_err = PICO_ERR_EINVAL;
         errno = pico_err;
@@ -551,7 +551,7 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
 {
     int retval = 0;
     int tot_len = 0;
-    struct pico_bsd_endpoint *ep = get_endpoint(sd);
+    struct pico_bsd_endpoint *ep = get_endpoint(sd, 1);
     union pico_address picoaddr;
     uint16_t port;
     unsigned char *buf = (unsigned char *)_buf;
@@ -694,7 +694,7 @@ int pico_recv(int sd, void * buf, int len, int flags)
 
 int pico_close(int sd)
 {
-    struct pico_bsd_endpoint *ep = get_endpoint(sd);
+    struct pico_bsd_endpoint *ep = get_endpoint(sd, 1);
     VALIDATE_NULL(ep);
     ep->error = PICO_ERR_NOERR;
 
@@ -712,7 +712,7 @@ int pico_close(int sd)
 
 int pico_shutdown(int sd, int how)
 {
-    struct pico_bsd_endpoint *ep = get_endpoint(sd);
+    struct pico_bsd_endpoint *ep = get_endpoint(sd, 1);
     VALIDATE_NULL(ep);
     ep->error = PICO_ERR_NOERR;
 
@@ -853,12 +853,15 @@ static struct pico_bsd_endpoint *pico_bsd_create_socket(void)
 #   define PICO_EBADFD      77  /* File descriptor in bad state */
 #endif
 
-static struct pico_bsd_endpoint *get_endpoint(int sd)
+static struct pico_bsd_endpoint *get_endpoint(int sd, int set_err)
 {
     if ((sd > PicoSocket_max) || (sd < 0) || 
          (PicoSockets[sd]->in_use == 0)) {
-        pico_err = PICO_EBADFD;
-        errno = pico_err;
+        if (set_err)
+        {
+            pico_err = PICO_EBADFD;
+            errno = pico_err;
+        }
         return NULL;
     }
     return PicoSockets[sd];
@@ -1228,7 +1231,7 @@ struct hostent *pico_gethostbyname(const char *name)
 
 int pico_getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
 {
-    struct pico_bsd_endpoint *ep = get_endpoint(sockfd);
+    struct pico_bsd_endpoint *ep = get_endpoint(sockfd, 1);
     int ret;
     bsd_dbg("called getsockopt\n");
     VALIDATE_NULL(ep);
@@ -1251,6 +1254,7 @@ int pico_getsockopt(int sockfd, int level, int optname, void *optval, socklen_t 
     if (optname == SO_ERROR)
     {
         *((int*)optval) = ep->error;
+        ep->error = 0;
         return 0;
     }
 
@@ -1264,7 +1268,7 @@ int pico_getsockopt(int sockfd, int level, int optname, void *optval, socklen_t 
 int pico_setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen)
 {
 
-    struct pico_bsd_endpoint *ep = get_endpoint(sockfd);
+    struct pico_bsd_endpoint *ep = get_endpoint(sockfd, 1);
     int ret;
     VALIDATE_NULL(ep);
     ep->error = PICO_ERR_NOERR;
@@ -1407,7 +1411,7 @@ int pico_pselect(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
     {
         for (i = 0; i < nfds; i++)
         {
-            struct pico_bsd_endpoint *ep = get_endpoint(i);
+            struct pico_bsd_endpoint *ep = get_endpoint(i, 0);
             bsd_dbg_select("\t~~~ SELECT: fds %d - ep:%p ", i, ep);
             if (ep)
             {
@@ -1499,7 +1503,7 @@ int pico_ppoll(struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout, 
 
     while (ret == 0) {
         for (i = 0; i < npfd; i++) {
-            struct pico_bsd_endpoint *ep = get_endpoint(pfd[i].fd);
+            struct pico_bsd_endpoint *ep = get_endpoint(pfd[i].fd, 0);
             pfd[i].revents = 0u;
 
             /* Always polled events */
