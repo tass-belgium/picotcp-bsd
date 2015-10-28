@@ -1485,7 +1485,7 @@ int pico_pselect(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
     return nfds_out;
 }
 
-int pico_select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_set *exceptfds, struct timeval *timeout) 
+int pico_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout) 
 {
     struct timespec ts;
     if (timeout) {

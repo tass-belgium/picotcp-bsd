@@ -289,7 +289,7 @@ int pico_fcntl(int sd, int cmd, int arg);
 int pico_setsockopt          (int sockfd, int level, int optname, const void *optval, socklen_t optlen); 
 int pico_getsockopt          (int sockfd, int level, int optname, void *optval, socklen_t *optlen);
 
-int pico_select              (int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_set *exceptfds, struct timeval *timeout);
+int pico_select              (int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout);
 int pico_pselect             (int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout, 
                                     const sigset_t *sigmask);
 

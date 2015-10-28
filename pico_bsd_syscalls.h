@@ -271,7 +271,7 @@
         return pico_getsockopt(sockfd, level, optname, optval, optlen);
     }
     
-    static inline int select(int nfds, pico_fd_set *readfds, pico_fd_set *writefds, pico_fd_set *exceptfds, struct timeval *timeout)
+    static inline int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout)
     {
         return pico_select(nfds, readfds, writefds, exceptfds, timeout);
     }
