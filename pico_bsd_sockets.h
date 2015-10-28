@@ -30,12 +30,13 @@ extern void   *picoLock;
 extern void   *pico_signal_tick;
 
 #if defined STDSOCKET || defined __socklen_t_defined
-    #include "sys/types.h"
+    #include <sys/types.h>
     #include <sys/socket.h>
     #include <netinet/in.h>
     #include <netdb.h>
     #include <fcntl.h>
     #include <sys/poll.h>
+    #include <sys/time.h>
     #ifdef __linux__
         #include <linux/tcp.h>
     #endif
@@ -67,7 +68,6 @@ extern void   *pico_signal_tick;
     #define fcntl           pico_fcntl
 
 #else
-
     typedef int socklen_t;
     #define AF_INET     (PICO_PROTO_IPV4)
     #define AF_INET6    (PICO_PROTO_IPV6)
@@ -296,7 +296,6 @@ int pico_pselect             (int nfds, fd_set *readfds, fd_set *writefds, fd_se
 int pico_poll                (struct pollfd *pfd, nfds_t npfd, int timeout);
 int pico_ppoll               (struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout_ts, const sigset_t *sigmask);
 
-
 #ifndef PICO_SUPPORT_SNTP_CLIENT
     struct pico_timeval
     {
@@ -305,7 +304,6 @@ int pico_ppoll               (struct pollfd *pfd, nfds_t npfd, const struct time
     };
     int pico_settimeofday(struct timeval *tv, struct timezone *tz);
 #endif
-
 
 int pico_gettimeofday(struct timeval *tv, struct timezone *tz);
 long XTIME(void);

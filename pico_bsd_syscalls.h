@@ -8,38 +8,160 @@
 #if defined (__socklen_t_defined) && defined (REPLACE_STDCALLS)
 
     /* For systems that have the syscalls already defined */
+    #ifdef socket
+    #undef socket
+    #endif
     #define socket          pico_newsocket
-    #define bind            pico_bind
-    #define listen          pico_listen
-    #define connect         pico_connect
-    #define accept          pico_accept
-    #define sendto          pico_sendto
-    #define recvfrom        pico_recvfrom
-    #define write           pico_write
-    #define read            pico_read
-    #define send            pico_send
-    #define recv            pico_recv
-    #define close           pico_close
-    #define shutdown        pico_shutdown
-    #define getsockname     pico_getsockname
-    #define getpeername     pico_getpeername
-    #define setsockopt      pico_setsockopt
-    #define getsockopt      pico_getsockopt
-    #define gettimeofday    pico_gettimeofday
-    #define gethostbyname   pico_gethostbyname
-    #define getaddrinfo     pico_getaddrinfo
-    #define freeaddrinfo    pico_freeaddrinfo
-    #define htons           short_be
-    #define htonl           long_be
-    #define ntohs           short_be
-    #define ntohl           long_be
-    #define inet_ntoa       pico_inet_ntoa
-    #define inet_ntop       pico_inet_ntop
-    #define select          pico_select
-    #define pselect         pico_pselect
-    #define poll            pico_poll
-    #define ppoll           pico_ppoll
 
+    #ifdef bind
+    #undef bind
+    #endif
+    #define bind            pico_bind
+
+    #ifdef listen
+    #undef listen
+    #endif
+    #define listen          pico_listen
+
+    #ifdef connect
+    #undef connect
+    #endif
+    #define connect         pico_connect
+
+    #ifdef accept
+    #undef accept
+    #endif
+    #define accept          pico_accept
+
+    #ifdef sendto
+    #undef sendto
+    #endif
+    #define sendto          pico_sendto
+
+    #ifdef recvfrom
+    #undef recvfrom
+    #endif
+    #define recvfrom        pico_recvfrom
+
+    #ifdef write
+    #undef write
+    #endif
+    #define write           pico_write
+
+    #ifdef read
+    #undef read
+    #endif
+    #define read            pico_read
+
+    #ifdef send
+    #undef send
+    #endif
+    #define send            pico_send
+
+    #ifdef recv
+    #undef recv
+    #endif
+    #define recv            pico_recv
+
+    #ifdef close
+    #undef close
+    #endif
+    #define close           pico_close
+
+    #ifdef shutdown
+    #undef shutdown
+    #endif
+    #define shutdown        pico_shutdown
+
+    #ifdef getsockname
+    #undef getsockname
+    #endif
+    #define getsockname     pico_getsockname
+
+    #ifdef getpeername
+    #undef getpeername
+    #endif
+    #define getpeername     pico_getpeername
+
+    #ifdef setsockopt
+    #undef setsockopt
+    #endif
+    #define setsockopt      pico_setsockopt
+
+    #ifdef getsockopt
+    #undef getsockopt
+    #endif
+    #define getsockopt      pico_getsockopt
+
+    #ifdef gettimeofday
+    #undef gettimeofday
+    #endif
+    #define gettimeofday    pico_gettimeofday
+
+    #ifdef gethostbyname
+    #undef gethostbyname
+    #endif
+    #define gethostbyname   pico_gethostbyname
+
+    #ifdef getaddrinfo
+    #undef getaddrinfo
+    #endif
+    #define getaddrinfo     pico_getaddrinfo
+
+    #ifdef freeaddrinfo
+    #undef freeaddrinfo
+    #endif
+    #define freeaddrinfo    pico_freeaddrinfo
+
+    #ifdef htons
+    #undef htons
+    #endif
+    #define htons           short_be
+
+    #ifdef htonl
+    #undef htonl
+    #endif
+    #define htonl           long_be
+
+    #ifdef ntohs
+    #undef ntohs
+    #endif
+    #define ntohs           short_be
+
+    #ifdef ntohl
+    #undef ntohl
+    #endif
+    #define ntohl           long_be
+
+    #ifdef inet_ntoa
+    #undef inet_ntoa
+    #endif
+    #define inet_ntoa       pico_inet_ntoa
+
+    #ifdef inet_ntop
+    #undef inet_ntop
+    #endif
+    #define inet_ntop       pico_inet_ntop
+
+    #ifdef select
+    #undef select
+    #endif
+    #define select          pico_select
+
+    #ifdef pselect
+    #undef pselect
+    #endif
+    #define pselect         pico_pselect
+
+    #ifdef poll
+    #undef poll
+    #endif
+    #define poll            pico_poll
+
+    #ifdef ppoll
+    #undef ppoll
+    #endif
+    #define ppoll           pico_ppoll
 #else
 
     static inline int socket(int domain, int type, int proto)
