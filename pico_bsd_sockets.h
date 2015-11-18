@@ -262,6 +262,7 @@ int pico_newsocket(int domain, int type, int proto);
 int pico_bind(int sd, struct sockaddr * local_addr, socklen_t socklen);
 int pico_listen(int sd, int backlog);
 int pico_connect(int sd, struct sockaddr *_saddr, socklen_t socklen);
+int pico_isconnected(int sd);
 int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen);
 int pico_sendto(int sd, void * buf, int len, int flags, struct sockaddr *_dst, socklen_t socklen);
 int pico_recvfrom(int sd, void * buf, int len, int flags, struct sockaddr *_addr, socklen_t *socklen);
@@ -274,6 +275,7 @@ int pico_shutdown(int sd, int how);
 int pico_getsockname(int sd, struct sockaddr * local_addr, socklen_t *socklen);
 int pico_getpeername(int sd, struct sockaddr * remote_addr, socklen_t *socklen);
 int pico_fcntl(int sd, int cmd, int arg);
+int pico_join_multicast_group(int sd, const char *address, const char *local);
 
 #ifdef PICO_SUPPORT_DNS_CLIENT
     struct hostent *pico_gethostbyname(const char *name);

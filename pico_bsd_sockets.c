@@ -353,6 +353,24 @@ int pico_connect(int sd, struct sockaddr *_saddr, socklen_t socklen)
     return -1;
 }
 
+int pico_isconnected(int sd) {
+    struct pico_bsd_endpoint *ep = NULL;
+    int state = 0;
+
+    ep = get_endpoint(sd, 1);
+
+    VALIDATE_NULL(ep);
+    ep->error = PICO_ERR_NOERR;
+
+    pico_mutex_lock(picoLock);
+    if(ep->state == SOCK_CONNECTED) {
+        state = 1;
+    }
+    pico_mutex_unlock(picoLock);
+
+    return state;
+}
+
 int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
 {
     struct pico_bsd_endpoint *ep, * client_ep = NULL;
@@ -727,6 +745,18 @@ int pico_shutdown(int sd, int how)
         errno = pico_err;
     }
     return 0;
+}
+
+int pico_join_multicast_group(int sd, const char *address, const char *local) {
+
+    int ret;
+    struct pico_ip_mreq mreq={};
+
+    pico_string_to_ipv4(address, &mreq.mcast_group_addr.ip4.addr);
+    pico_string_to_ipv4(local, &mreq.mcast_link_addr.ip4.addr);
+    ret = pico_setsockopt(sd, SOL_SOCKET, PICO_IP_ADD_MEMBERSHIP, &mreq, sizeof(struct pico_ip_mreq));
+
+    return ret;
 }
 
 /*** Helper functions ***/
