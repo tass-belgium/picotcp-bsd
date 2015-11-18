@@ -716,7 +716,7 @@ int pico_close(int sd)
     VALIDATE_NULL(ep);
     ep->error = PICO_ERR_NOERR;
 
-    if(ep->s) /* valid socket, try to close it */
+    if (ep->s && ep->in_use)  /* valid socket, try to close it */
     {
         pico_mutex_lock(picoLock);
         pico_socket_close(ep->s);
