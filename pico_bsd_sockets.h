@@ -51,6 +51,7 @@ extern void   *pico_signal_tick;
             case IP_DROP_MEMBERSHIP: return PICO_IP_DROP_MEMBERSHIP;
             case SO_RCVBUF   : return PICO_SOCKET_OPT_RCVBUF;
             case SO_SNDBUF   : return PICO_SOCKET_OPT_SNDBUF;
+            case TCP_NODELAY : return PICO_TCP_NODELAY;
             case TCP_KEEPCNT   : return PICO_SOCKET_OPT_KEEPCNT;
             case TCP_KEEPIDLE   : return PICO_SOCKET_OPT_KEEPIDLE;
             case TCP_KEEPINTVL   : return PICO_SOCKET_OPT_KEEPINTVL;
@@ -83,6 +84,7 @@ extern void   *pico_signal_tick;
     #define IP_DROP_MEMBERSHIP  (PICO_IP_DROP_MEMBERSHIP)
     #define SO_RCVBUF           (PICO_SOCKET_OPT_RCVBUF)
     #define SO_SNDBUF           (PICO_SOCKET_OPT_SNDBUF)
+    #define TCP_NODELAY         (PICO_TCP_NODELAY)
     #define TCP_KEEPCNT         (PICO_SOCKET_OPT_KEEPCNT)
     #define TCP_KEEPIDLE        (PICO_SOCKET_OPT_KEEPIDLE)
     #define TCP_KEEPINTVL       (PICO_SOCKET_OPT_KEEPINTVL)
