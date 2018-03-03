@@ -114,8 +114,8 @@ static int get_free_sd(struct pico_bsd_endpoint *ep);
 static int new_sd(struct pico_bsd_endpoint *ep);
 static void free_up_ep(struct pico_bsd_endpoint *ep);
 static struct pico_bsd_endpoint *get_endpoint(int sd, int set_err);
-static int bsd_to_pico_addr(union pico_address *addr, struct sockaddr *_saddr, socklen_t socklen);
-static uint16_t bsd_to_pico_port(struct sockaddr *_saddr, socklen_t socklen);
+static int bsd_to_pico_addr(union pico_address *addr, const struct sockaddr *_saddr, socklen_t socklen);
+static uint16_t bsd_to_pico_port(const struct sockaddr *_saddr, socklen_t socklen);
 static int pico_addr_to_bsd(struct sockaddr *_saddr, socklen_t socklen, union pico_address *addr, uint16_t net);
 static int pico_port_to_bsd(struct sockaddr *_saddr, socklen_t socklen, uint16_t port);
 
@@ -180,7 +180,7 @@ int pico_newsocket(int domain, int type, int proto)
 
 
 int pico_bind(int sd, struct sockaddr * local_addr, socklen_t socklen)
-{ 
+{
     union pico_address addr = { .ip4 = { 0 } };
     uint16_t port;
     struct pico_bsd_endpoint *ep = get_endpoint(sd, 1);
@@ -214,7 +214,7 @@ int pico_bind(int sd, struct sockaddr * local_addr, socklen_t socklen)
 }
 
 int pico_getsockname(int sd, struct sockaddr * local_addr, socklen_t *socklen)
-{ 
+{
     union pico_address addr;
     uint16_t port, proto;
     struct pico_bsd_endpoint *ep = get_endpoint(sd, 1);
@@ -249,7 +249,7 @@ int pico_getsockname(int sd, struct sockaddr * local_addr, socklen_t *socklen)
 }
 
 int pico_getpeername(int sd, struct sockaddr * remote_addr, socklen_t *socklen)
-{ 
+{
     union pico_address addr;
     uint16_t port, proto;
     struct pico_bsd_endpoint *ep = get_endpoint(sd, 1);
@@ -304,7 +304,7 @@ int pico_listen(int sd, int backlog)
     return 0;
 }
 
-int pico_connect(int sd, struct sockaddr *_saddr, socklen_t socklen)
+int pico_connect(int sd, const struct sockaddr *_saddr, socklen_t socklen)
 {
     struct pico_bsd_endpoint *ep = get_endpoint(sd, 1);
     union pico_address addr;
@@ -328,7 +328,7 @@ int pico_connect(int sd, struct sockaddr *_saddr, socklen_t socklen)
     if (ret < 0) {
         ep->error = pico_err;
         return -1;
-    }    
+    }
 
     if (ep->nonblocking) {
         pico_err = PICO_ERR_EAGAIN;
@@ -386,7 +386,7 @@ int pico_accept(int sd, struct sockaddr *_orig, socklen_t *socklen)
 
     if (ep->nonblocking)
         events = PICO_SOCK_EV_CONN;
-    else 
+    else
         events = pico_bsd_wait(ep, 0, 0, 0); /* Wait for CONN, FIN and ERR */
 
     if(events & PICO_SOCK_EV_CONN)
@@ -551,17 +551,17 @@ int pico_fcntl(int sd, int cmd, int arg)
         return 0;
     }
 
-          
+
     pico_err = PICO_ERR_EINVAL;
     errno = pico_err;
     ep->error = pico_err;
     return -1;
 }
 
-/* 
+/*
  * RETURN VALUE
  *   Upon  successful completion, recv_from() shall return the length of the
- *   message in bytes. If no messages are available to be received and the 
+ *   message in bytes. If no messages are available to be received and the
  *   peer has performed an orderly shutdown, recv() shall return 0. Otherwise,
  *   −1 shall be returned and errno set to indicate the error.
  */
@@ -641,7 +641,7 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
                 }
                 /* If in a recvfrom call, for UDP we should return immediately after the first dgram */
                 ep->error = pico_err;
-                return retval + tot_len; 
+                return retval + tot_len;
             } else {
                 /* TCP: continue until recvfrom = 0, socket buffer empty */
                 tot_len += retval;
@@ -665,7 +665,7 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
         {
             uint16_t ev = 0;
             /* wait for a new RD event -- also wait for CLOSE event */
-            ev = pico_bsd_wait(ep, 1, 0, 1); 
+            ev = pico_bsd_wait(ep, 1, 0, 1);
             if (ev & (PICO_SOCK_EV_ERR | PICO_SOCK_EV_FIN | PICO_SOCK_EV_CLOSE))
             {
                 /* closing and freeing the socket is done in the event handler */
@@ -760,7 +760,7 @@ int pico_join_multicast_group(int sd, const char *address, const char *local) {
 }
 
 /*** Helper functions ***/
-static int bsd_to_pico_addr(union pico_address *addr, struct sockaddr *_saddr, socklen_t socklen)
+static int bsd_to_pico_addr(union pico_address *addr, const struct sockaddr *_saddr, socklen_t socklen)
 {
     VALIDATE_TWO(socklen, SOCKSIZE, SOCKSIZE6);
     if (socklen == SOCKSIZE6) {
@@ -775,7 +775,7 @@ static int bsd_to_pico_addr(union pico_address *addr, struct sockaddr *_saddr, s
     return 0;
 }
 
-static uint16_t bsd_to_pico_port(struct sockaddr *_saddr, socklen_t socklen)
+static uint16_t bsd_to_pico_port(const struct sockaddr *_saddr, socklen_t socklen)
 {
     VALIDATE_TWO(socklen, SOCKSIZE, SOCKSIZE6);
     if (socklen == SOCKSIZE6) {
@@ -885,7 +885,7 @@ static struct pico_bsd_endpoint *pico_bsd_create_socket(void)
 
 static struct pico_bsd_endpoint *get_endpoint(int sd, int set_err)
 {
-    if ((sd > PicoSocket_max) || (sd < 0) || 
+    if ((sd > PicoSocket_max) || (sd < 0) ||
          (PicoSockets[sd]->in_use == 0)) {
         if (set_err)
         {
@@ -924,7 +924,7 @@ static uint16_t pico_bsd_wait(struct pico_bsd_endpoint * ep, int read, int write
   ep->events |= PICO_SOCK_EV_CONN;
   if (close)
       ep->events |= PICO_SOCK_EV_CLOSE;
-  if (read) 
+  if (read)
       ep->events |= PICO_SOCK_EV_RD;
   if (write)
       ep->events |= PICO_SOCK_EV_WR;
@@ -994,7 +994,7 @@ static void pico_socket_event(uint16_t ev, struct pico_socket *s)
         /* DO NOT set ep->s = NULL, we might still be transmitting stuff! */
         ep->state = SOCK_CLOSED;
     }
- 
+
     pico_signal_send(pico_signal_select); /* Signal this event globally (e.g. for select()) */
     pico_signal_send(ep->signal);    /* Signal the endpoint that was blocking on this event */
 
@@ -1066,7 +1066,7 @@ static void dns_ip6_cb(char *ip, void *arg)
             return;
         }
         new->ai_addrlen = sizeof(struct sockaddr_in6);
-        pico_string_to_ipv6(ip, (((struct sockaddr_in6*)(new->ai_addr))->sin6_addr.s6_addr)); 
+        pico_string_to_ipv6(ip, (((struct sockaddr_in6*)(new->ai_addr))->sin6_addr.s6_addr));
         ((struct sockaddr_in6*)(new->ai_addr))->sin6_family = AF_INET6;
         new->ai_next = *ck->res;
         *ck->res = new;
@@ -1103,7 +1103,7 @@ static void dns_ip4_cb(char *ip, void *arg)
             return;
         }
         new->ai_addrlen = sizeof(struct sockaddr_in);
-        pico_string_to_ipv4(ip, &(((struct sockaddr_in*)new->ai_addr)->sin_addr.s_addr));    
+        pico_string_to_ipv4(ip, &(((struct sockaddr_in*)new->ai_addr)->sin_addr.s_addr));
         ((struct sockaddr_in*)(new->ai_addr))->sin_family = AF_INET;
         new->ai_next = *ck->res;
         *ck->res = new;
@@ -1120,13 +1120,13 @@ static void dns_ip4_cb(char *ip, void *arg)
 int pico_getaddrinfo(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res)
 {
     struct dnsquery_cookie *ck4 = NULL;
-    struct dnsquery_cookie *ck6 = NULL;
     struct sockaddr_in sa4;
     *res = NULL;
     (void)service;
     bsd_dbg("Called pico_getaddrinfo, looking for %s\n", node);
 
 #ifdef PICO_SUPPORT_IPV6
+    struct dnsquery_cookie *ck6 = NULL;
     struct sockaddr_in6 sa6;
     if (pico_string_to_ipv6(node, sa6.sin6_addr.s6_addr) == 0) {
         ck6 = dnsquery_cookie_create(res, 0);
@@ -1241,7 +1241,7 @@ struct hostent *pico_gethostbyname(const char *name)
         PRIV_HOSTENT.h_addrtype = res->ai_addr->sa_family;
         if (PRIV_HOSTENT.h_addrtype == AF_INET) {
             PRIV_HOSTENT.h_length = 4;
-            PRIV_HOSTENT.h_addr_list[0] = PICO_ZALLOC(4); 
+            PRIV_HOSTENT.h_addr_list[0] = PICO_ZALLOC(4);
             if (!PRIV_HOSTENT.h_addr_list[0]) {
                 pico_freeaddrinfo(res);
                 return NULL;
@@ -1350,7 +1350,7 @@ int pico_settimeofday(struct timeval *tv, struct timezone *tz)
     return 0;
 }
 
-#else 
+#else
 
 static struct pico_timeval ptv = {0u,0u};
 
@@ -1418,7 +1418,7 @@ char *pico_inet_ntoa(struct in_addr in)
 
 int pico_pselect(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout, const sigset_t *sigmask)
 {
-    /* 
+    /*
      * EV_READ:     sets the readfds
      * EV_WRITE:    sets the writefds
      * EV_CONN:     sets the readfds (a.k.a. someone connects to your listening socket)
@@ -1465,7 +1465,7 @@ int pico_pselect(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
                     ep->revents |= PICO_SOCK_EV_WR;
 
                 /* WRITE event needed? and available? */
-                if (writefds && PICO_FD_ISSET(i,writefds) && (ep->revents & (PICO_SOCK_EV_WR))) 
+                if (writefds && PICO_FD_ISSET(i,writefds) && (ep->revents & (PICO_SOCK_EV_WR)))
                 {
                     bsd_dbg_select("- WRITE_EV - ");
                     nfds_out++;
@@ -1515,7 +1515,7 @@ int pico_pselect(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
     return nfds_out;
 }
 
-int pico_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout) 
+int pico_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout)
 {
     struct timespec ts;
     if (timeout) {
@@ -1523,7 +1523,7 @@ int pico_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, 
         ts.tv_nsec = timeout->tv_usec * 1000;
         return pico_pselect(nfds, readfds, writefds, exceptfds, &ts, NULL);
     } else
-        return pico_pselect(nfds, readfds, writefds, exceptfds, NULL, NULL); 
+        return pico_pselect(nfds, readfds, writefds, exceptfds, NULL, NULL);
 }
 
 int pico_ppoll(struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout, const sigset_t *sigmask) {
@@ -1538,7 +1538,7 @@ int pico_ppoll(struct pollfd *pfd, nfds_t npfd, const struct timespec *timeout, 
 
             /* Always polled events */
             if (!ep) {
-                pfd[i].revents |= POLLNVAL; 
+                pfd[i].revents |= POLLNVAL;
             }
             if (!ep->in_use) {
                 pfd[i].revents |= POLLNVAL;
