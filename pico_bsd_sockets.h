@@ -330,6 +330,10 @@ void                        pico_bsd_stack_tick(void);
 void                        pico_bsd_stack_tick_timeout(int timeout_ms);
 uint16_t                    pico_bsd_select(struct pico_bsd_endpoint *ep);
 
+#define SHUT_RD             PICO_SHUT_RD
+#define SHUT_WR             PICO_SHUT_WR
+#define SHUT_RDWR           PICO_SHUT_RDWR
+
 #ifdef REPLACE_STDCALLS
     #include "pico_bsd_syscalls.h"
 #endif
