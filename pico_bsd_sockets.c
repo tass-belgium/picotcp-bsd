@@ -649,16 +649,22 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
             }
         }
 
-        if (ep->nonblocking)
-        {
-            if (retval == 0)
-            {
+        /* Only way to reach this point is when `retval` == 0 and `tot_len` <= 0.
+         * The event SOCK_EV_RD will aready be cleared. The socket buffer
+         * is thus completely empty when calling this function and this
+         * point is reached. */
+
+        if (ep->nonblocking) {
+            if (retval == 0) {
                 pico_err = PICO_ERR_EAGAIN; /* or EWOULDBLOCK */
+                ep->error = pico_err;
                 errno = pico_err;
-                retval = -1; /* BSD-speak: -1 == 0 bytes received */
             }
-            break;
+            return -1; /* BSD-speak: -1 == 0 bytes received */
         }
+
+        /* We have a blocking socket. We need to wait until data becomes
+         * available to be able to return from this function. */
 
         /* If recv bytes (retval) < len-tot_len: socket empty, we need to wait for a new RD event */
         if (retval < (len - tot_len))
@@ -674,17 +680,16 @@ int pico_recvfrom(int sd, void * _buf, int len, int flags, struct sockaddr *_add
                 return 0; /* return 0 on a properly closed socket */
             }
         }
+
         tot_len += retval;
     }
-    pico_event_clear(ep, PICO_SOCK_EV_RD); // What if still space available and we clear it here??
+
+    /* We received a complete buffer of size `len`. Don't clear SOCK_EV_RD
+     * because there might still be available in the socket buffer.
+     * And clearing the READ event here might cause the application to run
+     * behind all data is possibly received */
     bsd_dbg("Recvfrom returning %d (full block)\n", tot_len);
     ep->error = pico_err;
-
-    if (tot_len == 0)
-    {
-        errno = pico_err;
-        tot_len = -1; /* BSD-speak: -1 == 0 bytes received */
-    }
     return tot_len;
 }
 
