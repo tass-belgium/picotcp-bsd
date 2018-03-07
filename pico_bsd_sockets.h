@@ -99,6 +99,10 @@ extern void   *pico_signal_tick;
     #define INET_ADDRSTRLEN    (16)
     #define INET6_ADDRSTRLEN   (46)
 
+    #define SHUT_RD             PICO_SHUT_RD
+    #define SHUT_WR             PICO_SHUT_WR
+    #define SHUT_RDWR           PICO_SHUT_RDWR
+
     struct sockaddr {
         uint16_t sa_family;
     };
@@ -329,10 +333,6 @@ void                        pico_bsd_deinit(void);
 void                        pico_bsd_stack_tick(void);
 void                        pico_bsd_stack_tick_timeout(int timeout_ms);
 uint16_t                    pico_bsd_select(struct pico_bsd_endpoint *ep);
-
-#define SHUT_RD             PICO_SHUT_RD
-#define SHUT_WR             PICO_SHUT_WR
-#define SHUT_RDWR           PICO_SHUT_RDWR
 
 #ifdef REPLACE_STDCALLS
     #include "pico_bsd_syscalls.h"
