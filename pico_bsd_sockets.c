@@ -331,7 +331,7 @@ int pico_connect(int sd, const struct sockaddr *_saddr, socklen_t socklen)
     }
 
     if (ep->nonblocking) {
-        pico_err = PICO_ERR_EAGAIN;
+        pico_err = PICO_ERR_EINPROGRESS;
         ep->error = pico_err;
     } else {
         /* wait for event */
